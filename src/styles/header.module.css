@@ -1,0 +1,22 @@
+.header {
+  background: white;
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 86%;
+  justify-self: center;
+}
+
+.navLink a {
+  color: #333;
+  transition: color 0.3s ease;
+}
+
+.navLink a:hover {
+  color: var(--color);
+}
+
+.button {
+  background-color: var(--b-color);
+  color: #fff;
+  transition: all 0.3s ease;
+}

@@ -1,0 +1,32 @@
+.footer {
+  background: #111; /* dark footer background */
+  color: #fff;
+  padding: 40px 20px;
+  border-radius: 20px;
+  margin-top: 40px;
+}
+
+.border {
+  border: 1px solid #333;
+}
+
+.navLink a {
+  color: #aaa;
+  transition: color 0.3s ease;
+  text-decoration: none;
+}
+
+.navLink a:hover {
+  color: var(--color); /* use your theme color */
+}
+
+.buttonLink {
+  border: 1px solid #555;
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+.buttonLink:focus {
+  border-color: var(--color);
+  outline: none;
+}
