@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FaChevronDown } from "react-icons/fa";
-import BikeCarousel from "./BikeCarousel";
+import BikeCarousel from "../bikes/BikeCarousel";
 
 const items = [
   {

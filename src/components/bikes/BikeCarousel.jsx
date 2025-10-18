@@ -2,6 +2,8 @@
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination } from "swiper/modules";
 import Image from "next/image";
+import { useState, useEffect } from "react";
+import fallbackImage from "@/app/images/house.jpg";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
@@ -74,11 +76,14 @@ export default function BikeCarousel() {
             <div className="bg-white rounded-2xl shadow p-5 flex flex-col items-center h-[250px]">
               <div className="w-full h-32 flex items-center justify-center">
                 <Image
-                  src={bike.image || "/placeholder.png"}
+                  src={bike.image || fallbackImage}
                   alt={bike.name}
                   width={200}
                   height={150}
                   className="rounded-lg object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = fallbackImage;
+                  }}
                 />
               </div>
               <h3 className="text-lg font-bold mt-4">{bike.name}</h3>

@@ -1,4 +1,4 @@
-import Container from "@/components/Container";
+import Container from "@/components/common/Container";
 import React from "react";
 
 export default function Privacy() {

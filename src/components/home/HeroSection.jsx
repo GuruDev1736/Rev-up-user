@@ -1,9 +1,10 @@
-import Container from "../Container";
+import Container from "../common/Container";
 import Image from "next/image";
 import image from "@/app/images/house.jpg";
 import banner from "@/app/images/homepage-banner.avif";
 import Accordian from "./Accordian";
 import TextHover from "./ImageHover";
+import PlacesSection from "./PlacesSection";
 import GirlImage from "@/app/images/girl.webp";
 import GroupImage from "@/app/images/Group.webp";
 import chevron from "@/app/images/chevron.webp";
@@ -64,19 +65,30 @@ export default function HeroSection() {
             </h1>
           </div>
 
-          {/* Cards Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl max-h-2">
-            <LocationCard
-              title="Amanora Plaza"
-              img={image}
-              alt="Amanora Plaza"
-            />
-            <LocationCard title="Magarpatta" img={image} alt="Magarpatta" />
+          {/* Places Section */}
+          <div className="w-full flex justify-center">
+            <PlacesSection />
           </div>
         </Container>
       </header>
 
       {/* Hero Section Ends */}
+
+      {/* Places Section */}
+      <section className="bg-white w-full flex flex-col justify-center px-4 py-16">
+        <div className="text-center mb-12">
+          <h2 className="font-semibold text-3xl sm:text-4xl text-[45px] mb-4">
+            Explore Our Locations
+          </h2>
+          <p className="text-gray-600 text-lg">
+            Discover amazing places where you can find your perfect ride.
+          </p>
+        </div>
+        
+        <div className="flex justify-center w-full">
+          <PlacesSection />
+        </div>
+      </section>
 
       <div className="bg-[#fbfbfb] min-h-[70vh] w-full flex flex-col justify-center px-4 py-16">
         <div className="text-center mb-8">

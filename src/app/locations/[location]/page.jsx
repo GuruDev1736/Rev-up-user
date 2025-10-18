@@ -1,4 +1,4 @@
-import BikeList from "@/components/BikeList";
+import BikeList from "@/components/bikes/BikeList";
 
 const Locations = async (props) => {
   const location = await props.params;

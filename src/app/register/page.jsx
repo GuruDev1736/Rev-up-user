@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
-import { registerUser } from "../../Api/Auth/auth";
+import { registerUser } from "@/api/auth";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 export default function Register() {
   const [firstName, setFirstName] = useState("");
@@ -11,11 +13,14 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profilePicture, setProfilePic] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
   const router = useRouter(); // ✅ initialize router
+  const { login } = useAuth();
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -23,7 +28,7 @@ export default function Register() {
     setErrorMsg(null);
 
     try {
-      const data = await registerUser({
+      const response = await registerUser({
         firstName,
         lastName,
         phoneNumber,
@@ -31,10 +36,28 @@ export default function Register() {
         password,
         profilePicture,
       });
-      if (data.STS === "200") {
-        router.push("/login");
+      
+      if (response.STS === "200") {
+        // Check if registration response includes a token (auto-login)
+        if (response.CONTENT && response.CONTENT.token) {
+          const { token, userName, userId, fullName, userRole, userProfilePic } = response.CONTENT;
+          
+          const userData = {
+            email: userName,
+            userId: userId,
+            fullName: fullName,
+            role: userRole,
+            profilePic: userProfilePic
+          };
+          
+          login(token, userData);
+          router.push("/");
+        } else {
+          // Redirect to login if no token provided
+          router.push("/login");
+        }
       } else {
-        setErrorMsg("Invalid credentials, please try again.");
+        setErrorMsg(response.MSG || "Registration failed. Please try again.");
       }
     } catch (error) {
       setErrorMsg(error.message || "Something went wrong");
@@ -55,8 +78,9 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-16">
-      <div className="bg-white shadow-lg rounded-2xl w-full max-w-xl p-8 mt-[10%]">
+    <AuthGuard requireGuest={true}>
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-16">
+        <div className="bg-white shadow-lg rounded-2xl w-full max-w-xl p-8 mt-[10%]">
         {/* Heading */}
         <h2 className="text-2xl md:text-3xl font-bold text-center mb-6">
           Create an Account
@@ -138,14 +162,34 @@ export default function Register() {
             >
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-black"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                {showPassword ? (
+                  // Eye slash icon (hide password)
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                  </svg>
+                ) : (
+                  // Eye icon (show password)
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Confirm Password */}
@@ -156,14 +200,34 @@ export default function Register() {
             >
               Confirm Password
             </label>
-            <input
-              type="password"
-              id="confirmPassword"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-black"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                id="confirmPassword"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-black"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                {showConfirmPassword ? (
+                  // Eye slash icon (hide password)
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                  </svg>
+                ) : (
+                  // Eye icon (show password)
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Terms */}
@@ -176,6 +240,11 @@ export default function Register() {
               </a>
             </label>
           </div>
+
+          {/* Error Message */}
+          {errorMsg && (
+            <p className="text-red-600 text-sm text-center">{errorMsg}</p>
+          )}
 
           {/* Submit Button */}
 
@@ -204,5 +273,6 @@ export default function Register() {
         </p>
       </div>
     </div>
+    </AuthGuard>
   );
 }

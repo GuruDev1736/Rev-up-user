@@ -1,4 +1,8 @@
+"use client";
+
 import Image from "next/image";
+import { useState } from "react";
+import fallbackImage from "@/app/images/house.jpg";
 
 const bikes = [
   {
@@ -48,11 +52,14 @@ function BikeCard({ bike }) {
       {/* Image */}
       <div className="w-full h-44 flex items-center justify-center bg-gray-50 overflow-hidden">
         <Image
-          src={bike.image}
+          src={bike.image || fallbackImage}
           alt={bike.name}
           width={200}
           height={140}
           className="object-contain transition-transform duration-300 hover:scale-105"
+          onError={(e) => {
+            e.currentTarget.src = fallbackImage;
+          }}
         />
       </div>
 

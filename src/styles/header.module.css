@@ -1,9 +1,10 @@
 .header {
   background: white;
-  padding: 20px;
-  margin: 20px auto;
-  max-width: 86%;
+  padding: 15px 20px;
+  margin: 15px auto;
+  max-width: 90%;
   justify-self: center;
+  border-radius: 50px;
 }
 
 .navLink a {
@@ -12,6 +13,15 @@
 }
 
 .navLink a:hover {
+  color: var(--color);
+}
+
+.navLink button {
+  color: #333;
+  transition: color 0.3s ease;
+}
+
+.navLink button:hover {
   color: var(--color);
 }
 

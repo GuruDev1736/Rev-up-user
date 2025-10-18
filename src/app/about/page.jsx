@@ -1,4 +1,4 @@
-import Container from "@/components/Container";
+import Container from "@/components/common/Container";
 import Image from "next/image";
 import built from "@/app/images/built.webp";
 import journey from "@/app/images/5.webp";
