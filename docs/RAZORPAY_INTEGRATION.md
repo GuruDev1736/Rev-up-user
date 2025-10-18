@@ -14,12 +14,51 @@
 Create a `.env.local` file in the root directory:
 
 ```bash
-NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_YOUR_KEY_ID_HERE
+# Copy from .env.example
+cp .env.example .env.local
 ```
 
-**Important:** Never commit `.env.local` to version control!
+Then update with your actual values:
 
-### 3. How It Works
+```bash
+# API Configuration
+NEXT_PUBLIC_API_BASE_URL=https://api.revupbikes.com
+
+# Razorpay Configuration
+NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_YOUR_ACTUAL_KEY_HERE
+```
+
+**Important:** 
+- Never commit `.env.local` to version control!
+- The `.env.local` file is already in `.gitignore`
+- Restart dev server after changing environment variables: `npm run dev`
+
+### 3. Configuration Management
+
+All environment variables are centralized in `src/config/index.js`:
+
+```javascript
+// API Configuration
+export const API_CONFIG = {
+  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
+};
+
+// Razorpay Configuration
+export const RAZORPAY_CONFIG = {
+  KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+};
+```
+
+**Usage in code:**
+```javascript
+import { API_CONFIG, RAZORPAY_CONFIG } from "@/config";
+
+// Use the config values
+const apiUrl = API_CONFIG.BASE_URL;
+const razorpayKey = RAZORPAY_CONFIG.KEY_ID;
+```
+
+### 4. How It Works
 
 #### Booking Flow:
 

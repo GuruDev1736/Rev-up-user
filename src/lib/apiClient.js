@@ -1,6 +1,8 @@
 // API Client utility for handling authenticated requests
+import { API_CONFIG } from "@/config";
 
-const BASE_URL = "https://api.revupbikes.com";
+// Get base URL from config
+const BASE_URL = API_CONFIG.BASE_URL;
 
 // Get auth token from localStorage
 const getAuthToken = () => {

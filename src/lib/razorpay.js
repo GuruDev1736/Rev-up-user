@@ -2,6 +2,8 @@
  * Load Razorpay script dynamically
  * @returns {Promise<boolean>}
  */
+import { RAZORPAY_CONFIG, APP_CONFIG } from "@/config";
+
 export const loadRazorpayScript = () => {
   return new Promise((resolve) => {
     // Check if script already loaded
@@ -34,7 +36,7 @@ export const loadRazorpayScript = () => {
 export const initiateRazorpayPayment = async ({
   amount,
   currency = "INR",
-  name = "RevUp Bikes",
+  name = APP_CONFIG.NAME,
   description,
   orderId,
   prefill = {},
@@ -50,8 +52,18 @@ export const initiateRazorpayPayment = async ({
     return;
   }
 
+  // Get Razorpay key from config
+  const razorpayKey = RAZORPAY_CONFIG.KEY_ID;
+
+  if (!razorpayKey) {
+    console.error("Razorpay key not found in environment variables");
+    alert("Payment configuration error. Please contact support.");
+    onFailure?.(new Error("Razorpay key not configured"));
+    return;
+  }
+
   const options = {
-    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_YOUR_KEY_ID", // Replace with your Razorpay key
+    key: razorpayKey,
     amount: Math.round(amount * 100), // Amount in paise
     currency: currency,
     name: name,
@@ -72,7 +84,7 @@ export const initiateRazorpayPayment = async ({
       description: description,
     },
     theme: {
-      color: "#DC2626", // Red color matching your theme
+      color: APP_CONFIG.THEME_COLOR,
     },
     modal: {
       ondismiss: function () {
