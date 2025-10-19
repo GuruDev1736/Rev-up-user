@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getAllPlaces } from "@/api/places";
+import { useAuth } from "@/contexts/AuthContext";
 import fallbackImage from "@/app/images/house.jpg";
 
 // Image component with error handling
@@ -37,7 +38,7 @@ const PlaceImage = ({ src, alt, className }) => {
 };
 
 // Reusable Place Card Component
-const PlaceCard = ({ place }) => (
+const PlaceCard = ({ place, isAuthenticated }) => (
   <div className="group relative rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
     {/* Image Container */}
     <div className="relative h-56 overflow-hidden">
@@ -74,23 +75,38 @@ const PlaceCard = ({ place }) => (
         </p>
       )}
 
-      {/* Action Button */}
-      <Link href={`/bikes/${place.id}`} className="block">
-        <button
-          aria-label={`Explore bikes at ${place.placeName}`}
-          className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl px-5 py-3 hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
-        >
-          <span>Explore Bikes</span>
-          <svg 
-            className="w-5 h-5 group-hover:translate-x-1 transition-transform" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
+      {/* Action Button - Only show if user is authenticated */}
+      {isAuthenticated && (
+        <Link href={`/bikes/${place.id}`} className="block">
+          <button
+            aria-label={`Explore bikes at ${place.placeName}`}
+            className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl px-5 py-3 hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-          </svg>
-        </button>
-      </Link>
+            <span>Explore Bikes</span>
+            <svg 
+              className="w-5 h-5 group-hover:translate-x-1 transition-transform" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </button>
+        </Link>
+      )}
+      
+      {/* Login Prompt for non-authenticated users */}
+      {!isAuthenticated && (
+        <div className="text-center">
+          <Link href="/login">
+            <button
+              className="w-full bg-gradient-to-r from-gray-600 to-gray-700 text-white font-semibold rounded-xl px-5 py-3 hover:from-gray-700 hover:to-gray-800 transition-all duration-300 shadow-md hover:shadow-lg"
+            >
+              Login to Explore
+            </button>
+          </Link>
+        </div>
+      )}
     </div>
   </div>
 );
@@ -99,6 +115,7 @@ export default function PlacesSection() {
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const fetchPlaces = async () => {
@@ -178,7 +195,7 @@ export default function PlacesSection() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl">
       {places.map((place, index) => (
-        <PlaceCard key={place.id || index} place={place} />
+        <PlaceCard key={place.id || index} place={place} isAuthenticated={isAuthenticated} />
       ))}
     </div>
   );

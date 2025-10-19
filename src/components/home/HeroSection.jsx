@@ -5,6 +5,7 @@ import banner from "@/app/images/homepage-banner.avif";
 import Accordian from "./Accordian";
 import TextHover from "./ImageHover";
 import PlacesSection from "./PlacesSection";
+import BikesList from "./BikesList";
 import GirlImage from "@/app/images/girl.webp";
 import GroupImage from "@/app/images/Group.webp";
 import chevron from "@/app/images/chevron.webp";
@@ -91,18 +92,18 @@ export default function HeroSection() {
       </section>
 
       <div className="bg-[#fbfbfb] min-h-[70vh] w-full flex flex-col justify-center px-4 py-16">
-        <div className="text-center mb-8">
+        <div className="text-center mb-12">
           <h2 className="font-semibold text-3xl sm:text-4xl text-[45px]">
             Find your ride
           </h2>
-          <p>
-            Explore the types of vehicles on our shared mobility marketplace.
+          <p className="text-gray-600 text-lg mt-2">
+            Explore our wide selection of bikes available for rent
           </p>
         </div>
 
-        {/* Accordian Section */}
-        <div className="flex items-center justify-center max-w-screen">
-          <Accordian className="w-full max-w-md sm:max-w-lg md:max-w-2xl" />
+        {/* Bikes List Section */}
+        <div className="flex items-center justify-center w-full">
+          <BikesList />
         </div>
       </div>
 
