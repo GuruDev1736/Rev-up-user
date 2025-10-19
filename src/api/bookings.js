@@ -1,4 +1,26 @@
-import { apiPost } from "@/lib/apiClient";
+import { apiPost, apiGet, apiPut } from "@/lib/apiClient";
+
+/**
+ * Get all bookings for a user
+ * @param {number} userId - User ID
+ * @returns {Promise<Array>} List of user bookings
+ */
+export const getUserBookings = async (userId) => {
+  try {
+    const response = await apiGet(`/api/bookings/user/${userId}`);
+
+    if (response && response.STS === "200" && response.CONTENT) {
+      return response.CONTENT;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      throw new Error(response?.MSG || "Failed to fetch bookings");
+    }
+  } catch (error) {
+    console.error("Error fetching user bookings:", error);
+    throw error;
+  }
+};
 
 /**
  * Create a booking after successful payment
@@ -33,6 +55,33 @@ export const createBooking = async (bookingData) => {
     }
   } catch (error) {
     console.error("Error creating booking:", error);
+    throw error;
+  }
+};
+
+/**
+ * Cancel a booking
+ * @param {number} bookingId - Booking ID
+ * @param {string} reason - Cancellation reason
+ * @returns {Promise<Object>} Cancellation response
+ */
+export const cancelBooking = async (bookingId, reason) => {
+  try {
+    const response = await apiPut(
+      `/api/bookings/${bookingId}/cancel`,
+      { reason }
+    );
+
+    if (response && response.STS === "200") {
+      return {
+        success: true,
+        message: response.MSG || "Booking cancelled successfully",
+      };
+    } else {
+      throw new Error(response?.MSG || "Failed to cancel booking");
+    }
+  } catch (error) {
+    console.error("Error cancelling booking:", error);
     throw error;
   }
 };

@@ -1,5 +1,9 @@
+"use client";
+
 import Container from "../common/Container";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import image from "@/app/images/house.jpg";
 import banner from "@/app/images/homepage-banner.avif";
 import Accordian from "./Accordian";
@@ -41,6 +45,17 @@ const TestimonialCard = ({ name, description }) => (
 );
 
 export default function HeroSection() {
+  const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  const handleListVehicleClick = () => {
+    if (isAuthenticated) {
+      router.push("/your-rides");
+    } else {
+      router.push("/login");
+    }
+  };
+
   return (
     <div>
       {/* Hero Section Starts */}
@@ -141,7 +156,10 @@ export default function HeroSection() {
               become a verified host in your city. Connect with riders, share
               your ride, and start earning effortlessly.
             </p>
-            <button className="mt-4 w-fit border-1  text-black font-medium rounded-full px-6 py-2 transition hover:bg-[#f51717] hover:text-white">
+            <button 
+              onClick={handleListVehicleClick}
+              className="mt-4 w-fit border-1  text-black font-medium rounded-full px-6 py-2 transition hover:bg-[#f51717] hover:text-white"
+            >
               List Your Vehicle
             </button>
           </div>
