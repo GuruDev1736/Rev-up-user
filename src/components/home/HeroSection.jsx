@@ -184,7 +184,7 @@ export default function HeroSection() {
               riders.
             </p>
 
-            <button className="mt-4 w-fit border-1 text-black font-medium rounded-full px-6 py-2 transition hover:bg-[#f51717] hover:text-white">
+            <button    onClick={() => router.push("/about")} className="mt-4 w-fit border-1 text-black font-medium rounded-full px-6 py-2 transition hover:bg-[#f51717] hover:text-white">
               Learn More
             </button>
           </div>

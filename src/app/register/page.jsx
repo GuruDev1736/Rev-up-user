@@ -40,12 +40,15 @@ export default function Register() {
       if (response.STS === "200") {
         // Check if registration response includes a token (auto-login)
         if (response.CONTENT && response.CONTENT.token) {
-          const { token, userName, userId, fullName, userRole, userProfilePic } = response.CONTENT;
+          const { token, userName, userId, fullName, userRole, userProfilePic, firstName: apiFirstName, lastName: apiLastName, phoneNumber: apiPhone } = response.CONTENT;
           
           const userData = {
             email: userName,
             userId: userId,
             fullName: fullName,
+            firstName: apiFirstName || firstName,
+            lastName: apiLastName || lastName,
+            phoneNumber: apiPhone || phoneNumber,
             role: userRole,
             profilePic: userProfilePic
           };

@@ -67,7 +67,7 @@ export default function Contact() {
                 <p className="text-gray-600 text-sm">
                   Stay connected, reach us anytime at:
                 </p>
-                <p className="text-black font-medium">info@revupbikes.com</p>
+                <p className="text-black font-medium">email@revupbikes.com</p>
               </div>
               
               <div>
@@ -270,7 +270,7 @@ export default function Contact() {
                       </svg>
                       <h4 className="font-semibold text-lg">Email Address</h4>
                     </div>
-                    <p className="text-gray-600 ml-9">info@revupbikes.com</p>
+                    <p className="text-gray-600 ml-9">email@revupbikes.com</p>
                   </div>
 
                   <div>

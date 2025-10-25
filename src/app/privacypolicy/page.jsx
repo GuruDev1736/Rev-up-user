@@ -129,10 +129,10 @@ export default function Privacy() {
               Haveli, Pune – 411028 <br />
               <span className="font-semibold">Email:</span>{" "}
               <a
-                href="mailto:cdo@revupbikes.com"
+                href="mailto:email@revupbikes.com"
                 className="text-blue-600 hover:underline"
               >
-                cdo@revupbikes.com
+                email@revupbikes.com
               </a>{" "}
               <br />
               <span className="font-semibold">Phone:</span> +91 XXXXX XXXXX{" "}

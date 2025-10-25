@@ -86,14 +86,24 @@ export default function Navbar() {
           </Link>
         </li>
         {isLogin && (
-          <li className={styles.navLink}>
-            <Link 
-              href="/your-rides"
-              className={isActive("/your-rides") ? "!text-red-600 !font-bold" : ""}
-            >
-              Your Rides
-            </Link>
-          </li>
+          <>
+            <li className={styles.navLink}>
+              <Link 
+                href="/profile"
+                className={isActive("/profile") ? "!text-red-600 !font-bold" : ""}
+              >
+                Profile
+              </Link>
+            </li>
+            <li className={styles.navLink}>
+              <Link 
+                href="/your-rides"
+                className={isActive("/your-rides") ? "!text-red-600 !font-bold" : ""}
+              >
+                Your Rides
+              </Link>
+            </li>
+          </>
         )}
         {!isLogin ? (
           <>
@@ -174,15 +184,26 @@ export default function Navbar() {
             </Link>
           </li>
           {isLogin && (
-            <li className={styles.navLink}>
-              <Link 
-                href="/your-rides" 
-                onClick={() => setIsOpen(false)}
-                className={isActive("/your-rides") ? "!text-red-600 !font-bold" : ""}
-              >
-                Your Rides
-              </Link>
-            </li>
+            <>
+              <li className={styles.navLink}>
+                <Link 
+                  href="/profile" 
+                  onClick={() => setIsOpen(false)}
+                  className={isActive("/profile") ? "!text-red-600 !font-bold" : ""}
+                >
+                  Profile
+                </Link>
+              </li>
+              <li className={styles.navLink}>
+                <Link 
+                  href="/your-rides" 
+                  onClick={() => setIsOpen(false)}
+                  className={isActive("/your-rides") ? "!text-red-600 !font-bold" : ""}
+                >
+                  Your Rides
+                </Link>
+              </li>
+            </>
           )}
           {!isLogin ? (
             <>

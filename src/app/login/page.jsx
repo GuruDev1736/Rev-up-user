@@ -36,7 +36,7 @@ export default function Login() {
       
       // Check if login was successful
       if (response.STS === "200" && response.CONTENT) {
-        const { token, userName, userId, fullName, userRole, userProfilePic } = response.CONTENT;
+        const { token, userName, userId, fullName, userRole, userProfilePic, firstName, lastName, phoneNumber } = response.CONTENT;
         
         // Store token and user data
         if (token) {
@@ -44,6 +44,9 @@ export default function Login() {
             email: userName,
             userId: userId,
             fullName: fullName,
+            firstName: firstName || fullName?.split(' ')[0] || '',
+            lastName: lastName || fullName?.split(' ').slice(1).join(' ') || '',
+            phoneNumber: phoneNumber || '',
             role: userRole,
             profilePic: userProfilePic
           };

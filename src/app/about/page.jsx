@@ -99,28 +99,6 @@ export default function About() {
           <Image src={built} alt="App preview" width={900} height={500} />
         </div>
       </div>
-
-      {/*Join Our Journey */}
-      <section className="md:py-16">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start gap-10 px-6 md:px-10">
-          <div>
-            <Image src={journey} width={450} alt="journey" />
-          </div>
-          <div className="w-full md:w-1/2 text-left py-[10px]">
-            <h3 className="text-3xl sm:text-4xl md:text-6xl lg:text-[70px] font-bold leading-tight tracking-tight">
-              Join Our <br /> Journey
-            </h3>
-            <p className="pt-[50px]">
-              Let’s get together and create a future where transportation is
-              shared, affordable and reduces the carbon footprint.
-            </p>
-            <div className="flex gap-5 py-5">
-              <p className="hover:text-[#f51717]">Partner With Us</p>
-              <p className="hover:text-[#f51717]">Work With Us</p>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
