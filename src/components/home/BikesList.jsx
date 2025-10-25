@@ -128,6 +128,7 @@ export default function BikesList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [categories, setCategories] = useState([]);
+  const [itemsToShow, setItemsToShow] = useState(10); // Show 10 items initially
 
   useEffect(() => {
     const fetchBikes = async () => {
@@ -177,6 +178,20 @@ export default function BikesList() {
 
     return matchesSearch && matchesCategory;
   });
+
+  // Get bikes to display based on pagination
+  const displayedBikes = filteredBikes.slice(0, itemsToShow);
+  const hasMore = filteredBikes.length > itemsToShow;
+
+  // Handle load more
+  const handleLoadMore = () => {
+    setItemsToShow((prev) => prev + 10); // Load 10 more bikes
+  };
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setItemsToShow(10);
+  }, [searchQuery, selectedCategory]);
 
   if (loading) {
     return (
@@ -361,18 +376,54 @@ export default function BikesList() {
         {/* Results Count */}
         <div className="text-center">
           <p className="text-gray-600 font-medium">
-            Showing {filteredBikes.length} of {bikes.length} bikes
+            Showing {displayedBikes.length} of {filteredBikes.length} bikes
+            {filteredBikes.length !== bikes.length && (
+              <span className="text-gray-500"> (filtered from {bikes.length} total)</span>
+            )}
           </p>
         </div>
       </div>
 
       {/* Bikes Grid */}
       {filteredBikes.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredBikes.map((bike, index) => (
-            <BikeCard key={bike.id || index} bike={bike} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {displayedBikes.map((bike, index) => (
+              <BikeCard key={bike.id || index} bike={bike} />
+            ))}
+          </div>
+
+          {/* Load More Button */}
+          {hasMore && (
+            <div className="mt-12 text-center">
+              <button
+                onClick={handleLoadMore}
+                className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-red-600 to-red-700 text-white px-8 py-4 rounded-2xl font-semibold hover:from-red-700 hover:to-red-800 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <span>Load More Bikes</span>
+                <svg
+                  className="w-5 h-5 group-hover:translate-y-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+                <span className="absolute -top-2 -right-2 bg-white text-red-600 text-xs font-bold px-2.5 py-1 rounded-full shadow-md">
+                  +{filteredBikes.length - itemsToShow}
+                </span>
+              </button>
+              <p className="text-sm text-gray-500 mt-4">
+                {filteredBikes.length - itemsToShow} more bikes available
+              </p>
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-center p-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
           <div className="text-gray-400 text-6xl mb-4">🔍</div>

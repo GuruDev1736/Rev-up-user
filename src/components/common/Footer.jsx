@@ -38,31 +38,8 @@ export default function Footer() {
 
         {/* Newsletter + Links Section */}
         <div className="flex flex-col md:flex-row gap-10 p-2 w-full mb-8">
-          {/* Newsletter */}
-          <div className="w-full md:w-[60%]">
-            <h6 className="text-[20px] font-semibold">NEWSLETTER</h6>
-            <p className="mb-5">
-              Stay up to date with our latest news, receive exclusive deals, and
-              more.
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                aria-label="Newsletter email"
-                className="w-[60%] border border-gray-300 text-white rounded-2xl py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              <button
-                type="submit"
-                className="text-black bg-white rounded-2xl px-6 py-2 font-medium hover:bg-gray-200 transition"
-              >
-                Submit
-              </button>
-            </div>
-          </div>
-
           {/* Company Links */}
-          <div className="w-full md:w-[20%]">
+          <div className="w-full md:w-[50%]">
             <h6 className="text-[20px] font-semibold">COMPANY LINKS</h6>
             <ul className="space-y-2">
               <li>
@@ -81,7 +58,7 @@ export default function Footer() {
           </div>
 
           {/* Social Links */}
-          <div className="w-full md:w-[20%]">
+          <div className="w-full md:w-[50%]">
             <h6 className="text-[20px] font-semibold">SOCIAL LINKS</h6>
             <ul className="space-y-2">
               <li className="flex items-center gap-2">

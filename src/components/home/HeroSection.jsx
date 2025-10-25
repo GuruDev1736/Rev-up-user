@@ -264,40 +264,6 @@ export default function HeroSection() {
           </div>
         </div>
       </section>
-
-      {/* Coming Soon Section */}
-
-      <section className=" justify-center items-center px-6 py-16 max-auto">
-        <div className="bg-[#ff0000] flex flex-col md:flex-row justify-between items-center mx-auto max-w-6xl rounded-3xl px-6 md:px-[60px] gap-6">
-          {/* Left Side */}
-          <div className="text-left text-white">
-            <h2 className="text-sm md:text-[15px]">DOWNLOAD APP</h2>
-            <h2 className="font-bold text-2xl md:text-[35px]">Coming Soon</h2>
-
-            <div className="flex flex-col sm:flex-row justify-start gap-3 mt-4">
-              <div className="flex items-center flex-row bg-black rounded-full px-6 py-3 gap-2">
-                <button>App Store</button>
-                <IoLogoGooglePlaystore className="text-[15px]" />
-              </div>
-              <div className="flex items-center flex-row rounded-full px-6 py-3 bg-black gap-2">
-                <button>Play Store</button>
-                <FaApple />
-              </div>
-            </div>
-          </div>
-
-          {/* Right Side */}
-          <div className="borer-1 flex justify-center md:justify-end">
-            <Image
-              src={app}
-              alt="download"
-              width={250}
-              height={100}
-              className="object-contain"
-            />
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
