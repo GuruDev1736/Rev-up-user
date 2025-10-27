@@ -1,6 +1,7 @@
 "use client";
 import Container from "@/components/common/Container";
 import React, { useState } from "react";
+import { sendContactMessage } from "@/api/contact";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -26,19 +27,36 @@ export default function Contact() {
     setIsSubmitting(true);
     setSubmitMessage("");
 
-    // Simulate form submission
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setSubmitMessage("Thank you! Your message has been sent successfully.");
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        subject: "",
-        message: ""
+      // Prepare the message text with all form details
+      const messageText = `
+Name: ${formData.name}
+Email: ${formData.email}
+Phone: ${formData.phone || 'Not provided'}
+
+Message:
+${formData.message}
+      `.trim();
+
+      const response = await sendContactMessage({
+        subject: formData.subject,
+        message: messageText
       });
+
+      if (response.STS === "200" || response.success) {
+        setSubmitMessage("Thank you! Your message has been sent successfully.");
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          subject: "",
+          message: ""
+        });
+      } else {
+        setSubmitMessage(response.MSG || "Sorry, there was an error sending your message. Please try again.");
+      }
     } catch (error) {
-      setSubmitMessage("Sorry, there was an error sending your message. Please try again.");
+      setSubmitMessage(error.message || "Sorry, there was an error sending your message. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
