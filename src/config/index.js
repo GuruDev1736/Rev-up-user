@@ -5,7 +5,7 @@
 
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.revupbikes.com",
+  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || "",
 };
 
 // Razorpay Configuration
