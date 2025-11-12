@@ -23,6 +23,57 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
   if (!isOpen) return null;
 
+  // Handle from date change with validation
+  const handleFromDateChange = (e) => {
+    const selectedDate = e.target.value;
+    setFromDate(selectedDate);
+    
+    // If date is today, validate from time isn't in the past
+    const today = new Date().toISOString().split("T")[0];
+    if (selectedDate === today && fromTime) {
+      const now = new Date();
+      const selectedDateTime = new Date(`${selectedDate}T${fromTime}`);
+      if (selectedDateTime < now) {
+        setFromTime(""); // Clear invalid time
+      }
+    }
+    
+    // Update to date minimum if needed
+    if (toDate && selectedDate > toDate) {
+      setToDate("");
+      setToTime("");
+    }
+  };
+
+  // Handle from time change with validation
+  const handleFromTimeChange = (e) => {
+    const selectedTime = e.target.value;
+    setFromTime(selectedTime);
+    
+    // If same date as to date, validate to time
+    if (fromDate === toDate && toTime) {
+      if (selectedTime >= toTime) {
+        setToTime(""); // Clear invalid to time
+      }
+    }
+  };
+
+  // Handle to date change
+  const handleToDateChange = (e) => {
+    const selectedDate = e.target.value;
+    setToDate(selectedDate);
+    
+    // Clear to time if dates are same and need revalidation
+    if (selectedDate === fromDate && toTime && fromTime && toTime <= fromTime) {
+      setToTime("");
+    }
+  };
+
+  // Handle to time change with validation
+  const handleToTimeChange = (e) => {
+    setToTime(e.target.value);
+  };
+
   // Format datetime for API (YYYY-MM-DD HH:mm)
   const formatForAPI = (date, time) => {
     if (!date || !time) return null;
@@ -83,6 +134,13 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
     const from = new Date(`${fromDate}T${fromTime}`);
     const to = new Date(`${toDate}T${toTime}`);
+    const now = new Date();
+
+    // Check if from date/time is in the past
+    if (from < now) {
+      alert("'From' date and time cannot be in the past");
+      return;
+    }
 
     if (from >= to) {
       alert("'To' date and time must be after 'From' date and time");
@@ -189,6 +247,43 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
   // Get today's date in YYYY-MM-DD format for min date
   const today = new Date().toISOString().split("T")[0];
+  
+  // Get current time in HH:mm format
+  const getCurrentTime = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  // Check if selected from date is today
+  const isFromDateToday = fromDate === today;
+  
+  // Check if selected to date is same as from date
+  const isToDateSameAsFrom = toDate === fromDate;
+  
+  // Get minimum time for from time input
+  const getMinFromTime = () => {
+    if (isFromDateToday) {
+      return getCurrentTime();
+    }
+    return undefined;
+  };
+  
+  // Get minimum time for to time input
+  const getMinToTime = () => {
+    if (isToDateSameAsFrom && fromTime) {
+      // If to date is same as from date, to time must be after from time
+      const [hours, minutes] = fromTime.split(':');
+      const minMinutes = parseInt(minutes) + 1;
+      if (minMinutes >= 60) {
+        const newHours = (parseInt(hours) + 1) % 24;
+        return `${String(newHours).padStart(2, '0')}:00`;
+      }
+      return `${hours}:${String(minMinutes).padStart(2, '0')}`;
+    }
+    return undefined;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -265,16 +360,23 @@ export default function BookingModal({ bike, isOpen, onClose }) {
                   <input
                     type="date"
                     value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
+                    onChange={handleFromDateChange}
                     min={today}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
                   />
                   <input
                     type="time"
                     value={fromTime}
-                    onChange={(e) => setFromTime(e.target.value)}
+                    onChange={handleFromTimeChange}
+                    min={getMinFromTime()}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
                   />
+                  {isFromDateToday && (
+                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                      <span>⚠️</span>
+                      <span>Cannot select past time for today</span>
+                    </p>
+                  )}
                   {fromDate && fromTime && (
                     <p className="text-xs text-gray-500 mt-1">
                       {new Date(`${fromDate}T${fromTime}`).toLocaleString('en-US', {
@@ -301,16 +403,23 @@ export default function BookingModal({ bike, isOpen, onClose }) {
                   <input
                     type="date"
                     value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
+                    onChange={handleToDateChange}
                     min={fromDate || today}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
                   />
                   <input
                     type="time"
                     value={toTime}
-                    onChange={(e) => setToTime(e.target.value)}
+                    onChange={handleToTimeChange}
+                    min={getMinToTime()}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
                   />
+                  {isToDateSameAsFrom && fromTime && (
+                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                      <span>⚠️</span>
+                      <span>Must be after {fromTime}</span>
+                    </p>
+                  )}
                   {toDate && toTime && (
                     <p className="text-xs text-gray-500 mt-1">
                       {new Date(`${toDate}T${toTime}`).toLocaleString('en-US', {

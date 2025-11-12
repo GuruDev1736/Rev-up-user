@@ -8,6 +8,7 @@ import image from "@/app/images/house.jpg";
 import banner from "@/app/images/homepage-banner.avif";
 import Accordian from "./Accordian";
 import TextHover from "./ImageHover";
+import BannersSection from "./BannersSection";
 import PlacesSection from "./PlacesSection";
 import BikesList from "./BikesList";
 import GirlImage from "@/app/images/girl.webp";
@@ -81,9 +82,9 @@ export default function HeroSection() {
             </h1>
           </div>
 
-          {/* Places Section */}
-          <div className="w-full flex justify-center">
-            <PlacesSection />
+          {/* Banners Section */}
+          <div className="w-full">
+            <BannersSection />
           </div>
         </Container>
       </header>
