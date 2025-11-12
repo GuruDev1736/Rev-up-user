@@ -92,3 +92,4 @@ export const getCurrentUser = () => {
     isAuthenticated: isAuthenticated(),
   };
 };
+
