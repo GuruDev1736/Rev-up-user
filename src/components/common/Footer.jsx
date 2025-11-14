@@ -32,7 +32,7 @@ export default function Footer() {
           </div>
           <div className="flex items-center gap-2">
             <FaEnvelope />
-            <span>email@revupbikes.com</span>
+            <span>support@revupbikes.com</span>
           </div>
         </div>
 

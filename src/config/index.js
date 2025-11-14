@@ -40,7 +40,7 @@ export const validateConfig = () => {
 };
 
 // Log configuration on startup (only in development)
-if (process.env.NODE_ENV === "development") {
+if (process.env.NODE_ENV === "dev") {
   console.log("🔧 Configuration loaded:", {
     API_BASE_URL: API_CONFIG.BASE_URL,
     RAZORPAY_KEY_ID: RAZORPAY_CONFIG.KEY_ID ? `${RAZORPAY_CONFIG.KEY_ID.substring(0, 10)}...` : "NOT SET",

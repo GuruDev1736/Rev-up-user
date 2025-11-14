@@ -30,10 +30,10 @@ export default function RefundPolicy() {
           <p>
             For any cancellations, please contact our support team at{" "}
             <a
-              href="mailto:email@revupbikes.com"
+              href="mailto:support@revupbikes.com"
               className="text-blue-600 hover:underline"
             >
-              email@revupbikes.com
+              support@revupbikes.com
             </a>{" "}
             with your order details.
           </p>

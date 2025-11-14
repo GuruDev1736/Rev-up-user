@@ -116,31 +116,6 @@ export default function Privacy() {
               ...
             </p>
           </section>
-
-          {/* Grievance Officer */}
-          <section className="bg-gray-50 border rounded-lg p-6">
-            <h2 className="text-xl md:text-2xl font-semibold mb-2">
-              Grievance Officer
-            </h2>
-            <p className="text-sm md:text-base">
-              RevUp <br />
-              CDO <br />
-              S. NO. 10, Mahatma Phule Vasahat, Hadapsar gadital, Saswad road,
-              Haveli, Pune – 411028 <br />
-              <span className="font-semibold">Email:</span>{" "}
-              <a
-                href="mailto:email@revupbikes.com"
-                className="text-blue-600 hover:underline"
-              >
-                email@revupbikes.com
-              </a>{" "}
-              <br />
-              <span className="font-semibold">Phone:</span> +91 XXXXX XXXXX{" "}
-              <br />
-              <span className="font-semibold">Time:</span> Mon – Fri (9:00 AM –
-              10:00 PM)
-            </p>
-          </section>
         </div>
       </div>
     </Container>
