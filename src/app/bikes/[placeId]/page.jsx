@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { getBikeByPlaceId } from "@/api/bikes";
 import Container from "@/components/common/Container";
-import BookingModal from "@/components/bikes/BookingModal";
 
 export default function BikesPage() {
   const params = useParams();
@@ -16,8 +15,6 @@ export default function BikesPage() {
   const [placeName, setPlaceName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedBike, setSelectedBike] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [categories, setCategories] = useState([]);
@@ -399,8 +396,10 @@ export default function BikesPage() {
                     <button
                       onClick={() => {
                         if (bike.status === "AVAILABLE") {
-                          setSelectedBike(bike);
-                          setIsModalOpen(true);
+                          // Store bike data in localStorage for the booking page
+                          localStorage.setItem("selectedBike", JSON.stringify(bike));
+                          // Navigate to booking page
+                          router.push(`/booking/${bike.id}`);
                         }
                       }}
                       disabled={bike.status !== "AVAILABLE"}
@@ -448,18 +447,6 @@ export default function BikesPage() {
             )}
           </div>
         </Container>
-
-        {/* Booking Modal */}
-        {selectedBike && (
-          <BookingModal
-            bike={selectedBike}
-            isOpen={isModalOpen}
-            onClose={() => {
-              setIsModalOpen(false);
-              setSelectedBike(null);
-            }}
-          />
-        )}
       </>
     );
   }

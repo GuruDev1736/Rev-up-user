@@ -92,6 +92,39 @@ export const initiateRazorpayPayment = async ({
         onFailure?.(new Error("Payment cancelled by user"));
       },
     },
+    config: {
+      display: {
+        blocks: {
+          banks: {
+            name: "All payment methods",
+            instruments: [
+              {
+                method: "upi"
+              },
+              {
+                method: "card"
+              },
+              {
+                method: "netbanking"
+              },
+              {
+                method: "wallet"
+              }
+            ]
+          }
+        },
+        sequence: ["block.banks"],
+        preferences: {
+          show_default_blocks: true
+        }
+      }
+    },
+    method: {
+      upi: true,
+      card: true,
+      netbanking: true,
+      wallet: true
+    }
   };
 
   const razorpay = new window.Razorpay(options);
