@@ -19,7 +19,15 @@ export default function BannersSection() {
         const response = await getAllBanners();
         
         if (response.STS === "200" && response.CONTENT && response.CONTENT.length > 0) {
-          setBanners(response.CONTENT);
+          // Filter and sanitize banner data
+          const sanitizedBanners = response.CONTENT.map(banner => ({
+            ...banner,
+            bannerImage: banner.bannerImage || null,
+            navigationLink: banner.navigationLink || null,
+            bannerTitle: banner.bannerTitle || '',
+            bannerDescription: banner.bannerDescription || ''
+          }));
+          setBanners(sanitizedBanners);
         } else {
           // Set dummy banners if no banners returned from API
           setDummyBanners();
@@ -214,22 +222,42 @@ export default function BannersSection() {
 function BannerCard({ banner }) {
   const [imageError, setImageError] = useState(false);
   
-  // Check if the URL is valid
+  // Check if the URL is valid (both absolute URLs and relative paths)
   const isValidUrl = (url) => {
-    try {
-      new URL(url);
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return false;
+    }
+    
+    const trimmedUrl = url.trim();
+    
+    // Check if it's a relative path (starts with / or doesn't have protocol)
+    if (trimmedUrl.startsWith('/')) {
       return true;
+    }
+    
+    // Check if it contains protocol (http:// or https://)
+    if (!trimmedUrl.includes('://')) {
+      // It's a relative path without leading slash (like "img1.jpg")
+      return true;
+    }
+    
+    // Try to validate as absolute URL
+    try {
+      const urlObj = new URL(trimmedUrl);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
     } catch (e) {
+      // Silently fail for invalid URLs
+      console.warn('Invalid banner image URL:', trimmedUrl);
       return false;
     }
   };
 
-  const hasValidImage = banner.bannerImage && isValidUrl(banner.bannerImage);
+  const hasValidImage = banner?.bannerImage && isValidUrl(banner.bannerImage);
 
   return (
     <div className="relative group">
       {/* Banner Image */}
-      <div className="relative h-[400px] sm:h-[450px] md:h-[500px] lg:h-[600px] w-full overflow-hidden">
+      <div className="relative h-[280px] sm:h-[320px] md:h-[360px] lg:h-[420px] w-full overflow-hidden">
         {hasValidImage && !imageError ? (
           <Image
             src={banner.bannerImage}
@@ -241,10 +269,10 @@ function BannerCard({ banner }) {
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#f51717] via-red-600 to-red-800 flex flex-col items-center justify-center">
-            <div className="text-white text-8xl md:text-9xl opacity-30 mb-6">
+            <div className="text-white text-6xl md:text-7xl opacity-30 mb-4">
               🏍️
             </div>
-            <span className="text-white text-2xl md:text-4xl font-bold opacity-40">
+            <span className="text-white text-xl md:text-2xl font-bold opacity-40">
               RevUp Bikes
             </span>
           </div>
@@ -254,14 +282,14 @@ function BannerCard({ banner }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
         
         {/* Content Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 lg:p-16 text-white max-w-7xl mx-auto">
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 lg:p-10 text-white max-w-7xl mx-auto">
           {banner.bannerTitle && (
-            <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 md:mb-4 drop-shadow-lg">
+            <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-2 md:mb-3 drop-shadow-lg">
               {banner.bannerTitle}
             </h3>
           )}
           {banner.bannerDescription && (
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-100 max-w-3xl drop-shadow-md">
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-100 max-w-3xl drop-shadow-md">
               {banner.bannerDescription}
             </p>
           )}

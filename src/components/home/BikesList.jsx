@@ -2,16 +2,38 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { getAllBikes } from "@/api/bikes";
 import fallbackImage from "@/app/images/house.jpg";
 
 // Image component with error handling
 const BikeImage = ({ src, alt, className }) => {
-  const [imageSrc, setImageSrc] = useState(src || fallbackImage);
+  const [imageSrc, setImageSrc] = useState(fallbackImage);
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
-    setImageSrc(src || fallbackImage);
+    // Validate and sanitize image source
+    const validateImageSrc = (source) => {
+      if (!source || typeof source !== 'string' || source.trim() === '') {
+        return fallbackImage;
+      }
+
+      const trimmedSrc = source.trim();
+
+      // Check if it's a valid URL format
+      // Accept: absolute URLs (http/https), or paths starting with /
+      if (trimmedSrc.startsWith('http://') || 
+          trimmedSrc.startsWith('https://') || 
+          trimmedSrc.startsWith('/')) {
+        return trimmedSrc;
+      }
+
+      // For relative paths without leading slash (like "img1.jpg"), use fallback
+      console.warn('Invalid bike image path:', trimmedSrc);
+      return fallbackImage;
+    };
+
+    setImageSrc(validateImageSrc(src));
     setIsError(false);
   }, [src]);
 
@@ -36,90 +58,169 @@ const BikeImage = ({ src, alt, className }) => {
 };
 
 // Bike Card Component
-const BikeCard = ({ bike }) => (
-  <div className="group relative rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-    {/* Bike Image */}
-    <div className="relative h-56 overflow-hidden">
-      <BikeImage
-        src={bike.bikeImage}
-        alt={bike.bikeName}
-        className="rounded-t-2xl object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
-      />
-      {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+const BikeCard = ({ bike }) => {
+  const [pricingPeriod, setPricingPeriod] = useState("day");
+  const router = useRouter();
 
-      {/* Category Badge */}
-      <div className="absolute top-4 left-4">
-        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-gray-800 backdrop-blur-sm">
-          {bike.category}
-        </span>
-      </div>
+  // Get prices from API response
+  const getPriceByPeriod = () => {
+    switch (pricingPeriod) {
+      case "day":
+        return bike.pricePerDay || 0;
+      case "week":
+        return bike.pricePerWeek || 0;
+      case "month":
+        return bike.pricePerMonth || 0;
+      default:
+        return bike.pricePerDay || 0;
+    }
+  };
 
-      {/* Place Badge */}
-      {bike.place && (
-        <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md">
-          <p className="text-xs font-medium text-gray-700 flex items-center gap-1">
-            <span className="text-sm">📍</span>
-            {bike.place.placeName}
-          </p>
-        </div>
-      )}
-    </div>
+  const getPeriodLabel = () => {
+    switch (pricingPeriod) {
+      case "day":
+        return "Per Day";
+      case "week":
+        return "Per Week";
+      case "month":
+        return "Per Month";
+      default:
+        return "Per Day";
+    }
+  };
 
-    {/* Bike Details */}
-    <div className="p-5">
-      <h3 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-red-600 transition-colors">
-        {bike.bikeName}
-      </h3>
-      <p className="text-sm text-gray-600 mb-3">
-        {bike.brand} • {bike.bikeModel}
-      </p>
-      <p className="text-sm text-gray-700 mb-4 line-clamp-2 leading-relaxed">
-        {bike.description}
-      </p>
+  const getDailyRate = () => {
+    switch (pricingPeriod) {
+      case "day":
+        return bike.pricePerDay || 0;
+      case "week":
+        return bike.pricePerWeek ? (bike.pricePerWeek / 7).toFixed(2) : 0;
+      case "month":
+        return bike.pricePerMonth ? (bike.pricePerMonth / 30).toFixed(2) : 0;
+      default:
+        return bike.pricePerDay || 0;
+    }
+  };
 
-      {/* Specifications */}
-      <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-gray-500">⚡</span>
-          <span className="text-gray-700">{bike.engineCapacity}cc</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-500">⛽</span>
-          <span className="text-gray-700">{bike.fuelType}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-500">⚙️</span>
-          <span className="text-gray-700">{bike.transmission}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-500">🔢</span>
-          <span className="text-gray-700 text-xs">
-            {bike.registrationNumber}
+  const handleBookNow = () => {
+    // Store bike data and selected pricing period in localStorage
+    localStorage.setItem("selectedBike", JSON.stringify(bike));
+    localStorage.setItem("selectedPricingPeriod", pricingPeriod);
+    router.push(`/booking/${bike.id}`);
+  };
+
+  return (
+    <div className="group relative rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+      {/* Bike Image */}
+      <div className="relative h-56 overflow-hidden">
+        <BikeImage
+          src={bike.bikeImage}
+          alt={bike.bikeName}
+          className="rounded-t-2xl object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+        />
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+
+        {/* Category Badge */}
+        <div className="absolute top-4 left-4">
+          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-gray-800 backdrop-blur-sm">
+            {bike.category}
           </span>
         </div>
+
+        {/* Place Badge */}
+        {bike.place && (
+          <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md">
+            <p className="text-xs font-medium text-gray-700 flex items-center gap-1">
+              <span className="text-sm">📍</span>
+              {bike.place.placeName}
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Pricing */}
-      <div className="border-t pt-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-xs text-gray-500">Per Hour</p>
-            <p className="text-lg font-bold text-gray-900">
-              ₹{bike.pricePerHour?.toFixed(2)}
-            </p>
+      {/* Bike Details */}
+      <div className="p-5">
+        <h3 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-red-600 transition-colors">
+          {bike.bikeName}
+        </h3>
+        <p className="text-sm text-gray-600 mb-3">
+          {bike.brand} • {bike.bikeModel}
+        </p>
+        <p className="text-sm text-gray-700 mb-4 line-clamp-2 leading-relaxed">
+          {bike.description}
+        </p>
+
+        {/* Specifications */}
+        <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">⚡</span>
+            <span className="text-gray-700">{bike.engineCapacity}cc</span>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Per Day</p>
-            <p className="text-lg font-bold text-gray-900">
-              ₹{bike.pricePerDay?.toFixed(2)}
-            </p>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">⛽</span>
+            <span className="text-gray-700">{bike.fuelType}</span>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">⚙️</span>
+            <span className="text-gray-700">{bike.transmission}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">📦</span>
+            <span className={`text-xs font-semibold ${
+              bike.quantity > 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {bike.quantity || 0} Available
+            </span>
+          </div>
+        </div>
+
+        {/* Pricing with Period Selector */}
+        <div className="border-t pt-4">
+          <div className="mb-3">
+            <label className="text-xs text-gray-500 mb-2 block">Rental Period</label>
+            <select
+              value={pricingPeriod}
+              onChange={(e) => setPricingPeriod(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white"
+            >
+              <option value="day">Per Day</option>
+              {bike.pricePerWeek && <option value="week">Per Week</option>}
+              {bike.pricePerMonth && <option value="month">Per Month</option>}
+            </select>
+          </div>
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <p className="text-xs text-gray-500">{getPeriodLabel()}</p>
+              <p className="text-2xl font-bold text-red-600">
+                ₹{getPriceByPeriod()}
+              </p>
+            </div>
+            {pricingPeriod !== "day" && (
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Daily Rate</p>
+                <p className="text-sm text-gray-700 font-semibold">
+                  ₹{getDailyRate()}/day
+                </p>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleBookNow}
+            disabled={bike.quantity === 0}
+            className={`w-full py-2.5 rounded-xl font-semibold transition-all shadow-md transform ${
+              bike.quantity === 0
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 hover:shadow-lg hover:scale-105'
+            }`}
+          >
+            {bike.quantity === 0 ? 'Out of Stock' : 'Book Now'}
+          </button>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function BikesList() {
   const [bikes, setBikes] = useState([]);

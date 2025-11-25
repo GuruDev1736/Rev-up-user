@@ -6,6 +6,26 @@ import Image from "next/image";
 import { getBikeByPlaceId } from "@/api/bikes";
 import Container from "@/components/common/Container";
 
+// Safe image source validator
+const getSafeImageSrc = (src) => {
+  if (!src || typeof src !== 'string' || src.trim() === '') {
+    return null;
+  }
+
+  const trimmedSrc = src.trim();
+
+  // Accept: absolute URLs (http/https), or paths starting with /
+  if (trimmedSrc.startsWith('http://') || 
+      trimmedSrc.startsWith('https://') || 
+      trimmedSrc.startsWith('/')) {
+    return trimmedSrc;
+  }
+
+  // For relative paths without leading slash (like "img1.jpg"), return null
+  console.warn('Invalid bike image path:', trimmedSrc);
+  return null;
+};
+
 export default function BikesPage() {
   const params = useParams();
   const router = useRouter();
@@ -310,14 +330,23 @@ export default function BikesPage() {
                   className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 group"
                 >
                   {/* Bike Image */}
-                  <div className="relative h-64 overflow-hidden">
-                    <Image
-                      src={bike.bikeImage}
-                      alt={bike.bikeName}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-500"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
+                  <div className="relative h-64 overflow-hidden bg-gray-100">
+                    {getSafeImageSrc(bike.bikeImage) ? (
+                      <Image
+                        src={getSafeImageSrc(bike.bikeImage)}
+                        alt={bike.bikeName}
+                        fill
+                        className="object-cover group-hover:scale-110 transition-transform duration-500"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
+                        <span className="text-6xl opacity-30">🏍️</span>
+                      </div>
+                    )}
                     {/* Status Badge */}
                     <div className="absolute top-4 right-4">
                       <span
@@ -367,28 +396,40 @@ export default function BikesPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-500">🔢</span>
-                        <span className="text-gray-700 text-xs">
-                          {bike.registrationNumber}
+                        <span className="text-gray-500">📦</span>
+                        <span className={`text-xs font-semibold ${
+                          bike.quantity > 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {bike.quantity || 0} Available
                         </span>
                       </div>
                     </div>
 
                     {/* Pricing */}
                     <div className="border-t pt-4 mb-4">
-                      <div className="flex justify-between items-center">
+                      <div className="grid grid-cols-3 gap-2 text-center">
                         <div>
-                          <p className="text-xs text-gray-500">Per Hour</p>
-                          <p className="text-lg font-bold text-gray-900">
-                            ₹{bike.pricePerHour.toFixed(2)}
-                          </p>
-                        </div>
-                        <div className="text-right">
                           <p className="text-xs text-gray-500">Per Day</p>
-                          <p className="text-lg font-bold text-gray-900">
-                            ₹{bike.pricePerDay.toFixed(2)}
+                          <p className="text-sm font-bold text-gray-900">
+                            ₹{bike.pricePerDay?.toFixed(2)}
                           </p>
                         </div>
+                        {bike.pricePerWeek && (
+                          <div>
+                            <p className="text-xs text-gray-500">Per Week</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              ₹{bike.pricePerWeek?.toFixed(2)}
+                            </p>
+                          </div>
+                        )}
+                        {bike.pricePerMonth && (
+                          <div>
+                            <p className="text-xs text-gray-500">Per Month</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              ₹{bike.pricePerMonth?.toFixed(2)}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -402,14 +443,16 @@ export default function BikesPage() {
                           router.push(`/booking/${bike.id}`);
                         }
                       }}
-                      disabled={bike.status !== "AVAILABLE"}
+                      disabled={bike.status !== "AVAILABLE" || bike.quantity === 0}
                       className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 ${
-                        bike.status === "AVAILABLE"
+                        bike.status === "AVAILABLE" && bike.quantity > 0
                           ? "bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 hover:shadow-lg"
                           : "bg-gray-200 text-gray-500 cursor-not-allowed"
                       }`}
                     >
-                      {bike.status === "AVAILABLE"
+                      {bike.quantity === 0
+                        ? "Out of Stock"
+                        : bike.status === "AVAILABLE"
                         ? "Book Now"
                         : bike.status === "RENTED"
                         ? "Currently Rented"

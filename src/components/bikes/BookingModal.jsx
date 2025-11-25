@@ -483,8 +483,12 @@ export default function BookingModal({ bike, isOpen, onClose }) {
               <span className="px-4 py-2 bg-red-50 text-red-700 rounded-full text-sm font-medium border border-red-200">
                 {bike.transmission}
               </span>
-              <span className="px-4 py-2 bg-red-50 text-red-700 rounded-full text-sm font-medium border border-red-200">
-                Registration: {bike.registrationNumber}
+              <span className={`px-4 py-2 rounded-full text-sm font-medium border ${
+                bike.quantity > 0 
+                  ? 'bg-green-50 text-green-700 border-green-200' 
+                  : 'bg-red-50 text-red-700 border-red-200'
+              }`}>
+                📦 {bike.quantity || 0} Available
               </span>
             </div>
           </div>

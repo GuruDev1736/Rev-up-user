@@ -10,6 +10,26 @@ import { useAuth } from "@/contexts/AuthContext";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
 
+// Safe image source validator
+const getSafeImageSrc = (src) => {
+  if (!src || typeof src !== 'string' || src.trim() === '') {
+    return null;
+  }
+
+  const trimmedSrc = src.trim();
+
+  // Accept: absolute URLs (http/https), or paths starting with /
+  if (trimmedSrc.startsWith('http://') || 
+      trimmedSrc.startsWith('https://') || 
+      trimmedSrc.startsWith('/')) {
+    return trimmedSrc;
+  }
+
+  // For relative paths without leading slash (like "img1.jpg"), return null
+  console.warn('Invalid bike image path:', trimmedSrc);
+  return null;
+};
+
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
@@ -17,6 +37,7 @@ export default function BookingPage() {
   const bikeId = params.bikeId;
 
   const [bike, setBike] = useState(null);
+  const [pricingPeriod, setPricingPeriod] = useState("day");
   const [fromDate, setFromDate] = useState("");
   const [fromTime, setFromTime] = useState("");
   const [toDate, setToDate] = useState("");
@@ -41,11 +62,17 @@ export default function BookingPage() {
   useEffect(() => {
     // Get bike data from localStorage or session storage
     const storedBike = localStorage.getItem("selectedBike");
+    const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
+    
     if (storedBike) {
       setBike(JSON.parse(storedBike));
     } else {
       // Redirect back if no bike data found
       router.push("/");
+    }
+    
+    if (storedPricingPeriod) {
+      setPricingPeriod(storedPricingPeriod);
     }
   }, [router]);
 
@@ -60,7 +87,7 @@ export default function BookingPage() {
     );
   }
 
-  // Handle from date change with validation
+  // Handle from date change with validation and pricing period restrictions
   const handleFromDateChange = (e) => {
     const selectedDate = e.target.value;
     setFromDate(selectedDate);
@@ -74,9 +101,33 @@ export default function BookingPage() {
       }
     }
 
-    if (toDate && selectedDate > toDate) {
-      setToDate("");
-      setToTime("");
+    // Auto-calculate end date based on pricing period
+    if (selectedDate && fromTime) {
+      const startDate = new Date(`${selectedDate}T${fromTime}`);
+      let endDate;
+
+      switch (pricingPeriod) {
+        case "week":
+          // Add 7 days for weekly rental
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 7);
+          setToDate(endDate.toISOString().split("T")[0]);
+          setToTime(fromTime);
+          break;
+        case "month":
+          // Add 30 days for monthly rental
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 30);
+          setToDate(endDate.toISOString().split("T")[0]);
+          setToTime(fromTime);
+          break;
+        default:
+          // For daily rental, clear end date to allow user selection
+          if (toDate && selectedDate > toDate) {
+            setToDate("");
+            setToTime("");
+          }
+      }
     }
   };
 
@@ -84,9 +135,62 @@ export default function BookingPage() {
     const selectedTime = e.target.value;
     setFromTime(selectedTime);
 
-    if (fromDate === toDate && toTime) {
-      if (selectedTime >= toTime) {
-        setToTime("");
+    // Auto-calculate end date based on pricing period
+    if (fromDate && selectedTime) {
+      const startDate = new Date(`${fromDate}T${selectedTime}`);
+      let endDate;
+
+      switch (pricingPeriod) {
+        case "week":
+          // Add 7 days for weekly rental
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 7);
+          setToDate(endDate.toISOString().split("T")[0]);
+          setToTime(selectedTime);
+          break;
+        case "month":
+          // Add 30 days for monthly rental
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 30);
+          setToDate(endDate.toISOString().split("T")[0]);
+          setToTime(selectedTime);
+          break;
+        default:
+          if (fromDate === toDate && toTime) {
+            if (selectedTime >= toTime) {
+              setToTime("");
+            }
+          }
+      }
+    }
+  };
+
+  // Handle pricing period change - reset dates when period changes
+  const handlePricingPeriodChange = (newPeriod) => {
+    setPricingPeriod(newPeriod);
+    
+    // If dates are already selected, recalculate end date based on new period
+    if (fromDate && fromTime) {
+      const startDate = new Date(`${fromDate}T${fromTime}`);
+      let endDate;
+
+      switch (newPeriod) {
+        case "week":
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 7);
+          setToDate(endDate.toISOString().split("T")[0]);
+          setToTime(fromTime);
+          break;
+        case "month":
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 30);
+          setToDate(endDate.toISOString().split("T")[0]);
+          setToTime(fromTime);
+          break;
+        default:
+          // For daily rental, clear end date to allow user selection
+          setToDate("");
+          setToTime("");
       }
     }
   };
@@ -109,6 +213,52 @@ export default function BookingPage() {
     return `${date} ${time}`;
   };
 
+  // Get price based on selected pricing period from API response
+  const getPriceByPeriod = () => {
+    if (!bike) return 0;
+    
+    switch (pricingPeriod) {
+      case "day":
+        return bike.pricePerDay || 0;
+      case "week":
+        // Return weekly price divided by 7 for daily rate
+        return bike.pricePerWeek ? bike.pricePerWeek / 7 : bike.pricePerDay || 0;
+      case "month":
+        // Return monthly price divided by 30 for daily rate
+        return bike.pricePerMonth ? bike.pricePerMonth / 30 : bike.pricePerDay || 0;
+      default:
+        return bike.pricePerDay || 0;
+    }
+  };
+
+  const getPeriodLabel = () => {
+    switch (pricingPeriod) {
+      case "day":
+        return "Per Day";
+      case "week":
+        return "Per Week";
+      case "month":
+        return "Per Month";
+      default:
+        return "Per Day";
+    }
+  };
+
+  const getTotalPriceForPeriod = () => {
+    if (!bike) return 0;
+    
+    switch (pricingPeriod) {
+      case "day":
+        return bike.pricePerDay || 0;
+      case "week":
+        return bike.pricePerWeek || 0;
+      case "month":
+        return bike.pricePerMonth || 0;
+      default:
+        return bike.pricePerDay || 0;
+    }
+  };
+
   const calculateBooking = () => {
     if (!fromDate || !fromTime || !toDate || !toTime) return { days: 0, totalCost: 0 };
 
@@ -117,9 +267,11 @@ export default function BookingPage() {
     const diffTime = Math.abs(to - from);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+    const pricePerDay = getPriceByPeriod();
+
     return {
       days: diffDays,
-      totalCost: diffDays * bike.pricePerDay,
+      totalCost: diffDays * pricePerDay,
       fromDateTime: formatForAPI(fromDate, fromTime),
       toDateTime: formatForAPI(toDate, toTime),
     };
@@ -347,9 +499,11 @@ export default function BookingPage() {
               totalAmount: totalCost,
               aadharcardUrl: aadharUpload.url,
               drivingLicenseUrl: licenseUpload.url,
-              currentAddress: currentAddress,
+              presentAddress: currentAddress,
               permanentAddress: permanentAddress,
-              alternateMobile: alternateMobile,
+              alternateContactNumber: alternateMobile,
+              rentalPeriodType: pricingPeriod.toUpperCase(), // DAY, WEEK, or MONTH
+              quantity: 1, // User can only book one bike at a time
             };
 
             console.log("Creating booking with data:", bookingData);
@@ -454,6 +608,27 @@ export default function BookingPage() {
           <p className="text-gray-600 mt-2">Complete the booking details to reserve your ride</p>
         </div>
 
+        {/* Out of Stock Warning */}
+        {bike.quantity === 0 && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h3 className="text-lg font-bold text-red-800">This bike is currently out of stock</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  Sorry, this bike is not available for booking at the moment. Please check back later or browse other available bikes.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/bikes')}
+              className="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all"
+            >
+              Browse Available Bikes
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Booking Form */}
           <div className="lg:col-span-2 space-y-6">
@@ -461,20 +636,29 @@ export default function BookingPage() {
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Bike Details</h2>
               <div className="flex gap-4">
-                <div className="relative w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden">
-                  <Image
-                    src={bike.bikeImage}
-                    alt={bike.bikeName}
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative w-32 h-32 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
+                  {getSafeImageSrc(bike.bikeImage) ? (
+                    <Image
+                      src={getSafeImageSrc(bike.bikeImage)}
+                      alt={bike.bikeName}
+                      fill
+                      className="object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
+                      <span className="text-4xl opacity-30">🏍️</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-grow">
                   <h3 className="text-xl font-bold text-gray-900 mb-1">{bike.bikeName}</h3>
                   <p className="text-sm text-gray-600 mb-3">
                     {bike.brand} • {bike.bikeModel}
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                     <div className="flex items-center gap-1">
                       <span>⚡</span>
                       <span className="text-gray-700">{bike.engineCapacity}cc</span>
@@ -487,9 +671,46 @@ export default function BookingPage() {
                       <span>⚙️</span>
                       <span className="text-gray-700">{bike.transmission}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-red-600 font-semibold">₹{bike.pricePerDay}/day</span>
-                    </div>
+                  </div>
+                  {/* Pricing Period Selector */}
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Rental Period</label>
+                    <select
+                      value={pricingPeriod}
+                      onChange={(e) => handlePricingPeriodChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white"
+                    >
+                      <option value="day">Per Day - ₹{bike.pricePerDay?.toFixed(2)}</option>
+                      {bike.pricePerWeek && (
+                        <option value="week">Per Week (7 days) - ₹{bike.pricePerWeek?.toFixed(2)}</option>
+                      )}
+                      {bike.pricePerMonth && (
+                        <option value="month">Per Month (30 days) - ₹{bike.pricePerMonth?.toFixed(2)}</option>
+                      )}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Effective rate: <span className="text-red-600 font-semibold">₹{getPriceByPeriod()?.toFixed(2)}/day</span>
+                    </p>
+                    {pricingPeriod !== "day" && (
+                      <p className="text-xs text-blue-600 mt-1 font-medium">
+                        ℹ️ End date will be auto-calculated ({pricingPeriod === "week" ? "7 days" : "30 days"})
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Quantity Selector */}
+                  <div className="mt-3">
+                    <label className="text-xs text-gray-500 mb-1 block">Quantity</label>
+                    <input
+                      type="number"
+                      value={1}
+                      disabled
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100 cursor-not-allowed text-gray-600"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      You can only book one bike at a time
+                    </p>
                   </div>
                 </div>
               </div>
@@ -545,6 +766,9 @@ export default function BookingPage() {
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
                     <span className="text-red-600">🕐</span>
                     To
+                    {pricingPeriod !== "day" && (
+                      <span className="text-xs text-gray-500 font-normal">(Auto-calculated)</span>
+                    )}
                   </label>
                   <div className="space-y-2">
                     <input
@@ -552,16 +776,30 @@ export default function BookingPage() {
                       value={toDate}
                       onChange={handleToDateChange}
                       min={fromDate || today}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
+                      readOnly={pricingPeriod !== "day"}
+                      disabled={pricingPeriod !== "day"}
+                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all ${
+                        pricingPeriod !== "day" ? "bg-gray-100 cursor-not-allowed" : "bg-white"
+                      }`}
                     />
                     <input
                       type="time"
                       value={toTime}
                       onChange={handleToTimeChange}
                       min={getMinToTime()}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
+                      readOnly={pricingPeriod !== "day"}
+                      disabled={pricingPeriod !== "day"}
+                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all ${
+                        pricingPeriod !== "day" ? "bg-gray-100 cursor-not-allowed" : "bg-white"
+                      }`}
                     />
-                    {isToDateSameAsFrom && fromTime && (
+                    {pricingPeriod !== "day" && fromDate && fromTime && (
+                      <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                        <span>ℹ️</span>
+                        <span>Automatically set to {pricingPeriod === "week" ? "7 days" : "30 days"} from start date</span>
+                      </p>
+                    )}
+                    {isToDateSameAsFrom && fromTime && pricingPeriod === "day" && (
                       <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                         <span>⚠️</span>
                         <span>Must be after {fromTime}</span>
@@ -586,13 +824,18 @@ export default function BookingPage() {
 
               {days > 0 && (
                 <div className="mt-4 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-gray-700 font-medium">
-                      Duration: {days} {days === 1 ? "Day" : "Days"}
-                    </span>
-                    <span className="text-gray-600 text-sm">
-                      ₹{bike.pricePerDay.toFixed(2)} × {days}
-                    </span>
+                  <div className="mb-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-700 font-medium">
+                        Duration: {days} {days === 1 ? "Day" : "Days"}
+                      </span>
+                      <span className="text-gray-600 text-sm">
+                        ₹{getPriceByPeriod()?.toFixed(2)} × {days}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Rental period: {getPeriodLabel()} (₹{getTotalPriceForPeriod()?.toFixed(2)})
+                    </p>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t border-red-300">
                     <span className="text-lg font-bold text-gray-900">Total Cost:</span>
@@ -993,6 +1236,10 @@ export default function BookingPage() {
                   <span className="text-gray-600">Bike:</span>
                   <span className="font-semibold text-gray-900">{bike.bikeName}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Rental Period:</span>
+                  <span className="font-semibold text-gray-900">{getPeriodLabel()}</span>
+                </div>
                 {days > 0 && (
                   <>
                     <div className="flex justify-between text-sm">
@@ -1000,8 +1247,8 @@ export default function BookingPage() {
                       <span className="font-semibold text-gray-900">{days} {days === 1 ? "Day" : "Days"}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Price per day:</span>
-                      <span className="font-semibold text-gray-900">₹{bike.pricePerDay.toFixed(2)}</span>
+                      <span className="text-gray-600">Rate per day:</span>
+                      <span className="font-semibold text-gray-900">₹{getPriceByPeriod()?.toFixed(2)}</span>
                     </div>
                     <div className="border-t pt-3">
                       <div className="flex justify-between">
@@ -1023,6 +1270,7 @@ export default function BookingPage() {
                 onClick={handleBooking}
                 disabled={
                   loading ||
+                  bike.quantity === 0 ||
                   !fromDate ||
                   !fromTime ||
                   !toDate ||
@@ -1036,6 +1284,7 @@ export default function BookingPage() {
                 }
                 className={`w-full px-6 py-4 font-semibold rounded-xl transition-all ${
                   loading ||
+                  bike.quantity === 0 ||
                   !fromDate ||
                   !fromTime ||
                   !toDate ||
@@ -1074,6 +1323,8 @@ export default function BookingPage() {
                     </svg>
                     Processing...
                   </span>
+                ) : bike.quantity === 0 ? (
+                  "Out of Stock - Cannot Book"
                 ) : (
                   "Confirm Booking & Pay"
                 )}

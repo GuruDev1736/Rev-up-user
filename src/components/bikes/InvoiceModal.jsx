@@ -108,9 +108,11 @@ export default function InvoiceModal({ booking, isOpen, onClose }) {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Registration</span>
-                  <span className="font-mono text-xs text-gray-900">
-                    {booking.bike.registrationNumber}
+                  <span className="text-gray-600">Available Quantity</span>
+                  <span className={`font-semibold ${
+                    booking.bike.quantity > 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {booking.bike.quantity || 0}
                   </span>
                 </div>
               </div>
