@@ -62,53 +62,46 @@ export default function BookingPage() {
 
   useEffect(() => {
     const fetchBikeData = async () => {
-      try {
-        // Fetch fresh bike data from API
-        const response = await getBikeById(bikeId);
-        
-        // Handle different API response formats
-        let bikeData = null;
-        if (response && response.STS === "200" && response.CONTENT) {
-          bikeData = response.CONTENT;
-        } else if (response && typeof response === 'object' && response.id) {
-          bikeData = response;
-        }
-        
-        if (bikeData) {
+      // First, try to get bike from localStorage
+      const storedBike = localStorage.getItem("selectedBike");
+      const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
+      
+      if (storedBike) {
+        try {
+          const bikeData = JSON.parse(storedBike);
           setBike(bikeData);
           
-          // Get stored pricing period preference
-          const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
           if (storedPricingPeriod) {
             setPricingPeriod(storedPricingPeriod);
           }
-        } else {
-          console.error("Failed to fetch bike data:", response);
-          // Fallback to localStorage if API fails
-          const storedBike = localStorage.getItem("selectedBike");
-          if (storedBike) {
-            setBike(JSON.parse(storedBike));
-            const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
-            if (storedPricingPeriod) {
-              setPricingPeriod(storedPricingPeriod);
+          
+          // Try to fetch fresh data in the background to update quantity
+          try {
+            const response = await getBikeById(bikeId);
+            
+            // Handle different API response formats
+            let freshBikeData = null;
+            if (response && response.STS === "200" && response.CONTENT) {
+              freshBikeData = response.CONTENT;
+            } else if (response && typeof response === 'object' && response.id) {
+              freshBikeData = response;
             }
-          } else {
-            router.push("/");
+            
+            // Update with fresh data if available
+            if (freshBikeData) {
+              setBike(freshBikeData);
+            }
+          } catch (apiError) {
+            // Silently fail - we already have data from localStorage
+            console.log("Could not fetch fresh bike data, using cached data");
           }
-        }
-      } catch (error) {
-        console.error("Error fetching bike:", error);
-        // Fallback to localStorage if API fails
-        const storedBike = localStorage.getItem("selectedBike");
-        if (storedBike) {
-          setBike(JSON.parse(storedBike));
-          const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
-          if (storedPricingPeriod) {
-            setPricingPeriod(storedPricingPeriod);
-          }
-        } else {
+        } catch (parseError) {
+          console.error("Error parsing stored bike data:", parseError);
           router.push("/");
         }
+      } else {
+        // No localStorage data, redirect to home
+        router.push("/");
       }
     };
 
