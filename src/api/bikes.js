@@ -9,6 +9,15 @@ export const getBikeByPlaceId = async (id) => {
   }
 };
 
+export const getBikeById = async (id) => {
+  try {
+    return await apiGet(`/api/bikes/${id}`);
+  } catch (error) {
+    console.error("Error in getBikeById:", error.message);
+    throw error;
+  }
+};
+
 export const getAllBikes = async () => {
   try {
     return await apiGet("/api/bikes/all");

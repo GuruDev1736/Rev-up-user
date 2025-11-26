@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { uploadDocument } from "@/api/upload";
 import { createBooking } from "@/api/bookings";
+import { getBikeById } from "@/api/bikes";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import Container from "@/components/common/Container";
@@ -60,21 +61,61 @@ export default function BookingPage() {
   const [alternateMobile, setAlternateMobile] = useState("");
 
   useEffect(() => {
-    // Get bike data from localStorage or session storage
-    const storedBike = localStorage.getItem("selectedBike");
-    const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
-    
-    if (storedBike) {
-      setBike(JSON.parse(storedBike));
-    } else {
-      // Redirect back if no bike data found
-      router.push("/");
+    const fetchBikeData = async () => {
+      try {
+        // Fetch fresh bike data from API
+        const response = await getBikeById(bikeId);
+        
+        // Handle different API response formats
+        let bikeData = null;
+        if (response && response.STS === "200" && response.CONTENT) {
+          bikeData = response.CONTENT;
+        } else if (response && typeof response === 'object' && response.id) {
+          bikeData = response;
+        }
+        
+        if (bikeData) {
+          setBike(bikeData);
+          
+          // Get stored pricing period preference
+          const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
+          if (storedPricingPeriod) {
+            setPricingPeriod(storedPricingPeriod);
+          }
+        } else {
+          console.error("Failed to fetch bike data:", response);
+          // Fallback to localStorage if API fails
+          const storedBike = localStorage.getItem("selectedBike");
+          if (storedBike) {
+            setBike(JSON.parse(storedBike));
+            const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
+            if (storedPricingPeriod) {
+              setPricingPeriod(storedPricingPeriod);
+            }
+          } else {
+            router.push("/");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching bike:", error);
+        // Fallback to localStorage if API fails
+        const storedBike = localStorage.getItem("selectedBike");
+        if (storedBike) {
+          setBike(JSON.parse(storedBike));
+          const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
+          if (storedPricingPeriod) {
+            setPricingPeriod(storedPricingPeriod);
+          }
+        } else {
+          router.push("/");
+        }
+      }
+    };
+
+    if (bikeId) {
+      fetchBikeData();
     }
-    
-    if (storedPricingPeriod) {
-      setPricingPeriod(storedPricingPeriod);
-    }
-  }, [router]);
+  }, [bikeId, router]);
 
   if (!bike) {
     return (

@@ -347,22 +347,20 @@ export default function BikesPage() {
                         <span className="text-6xl opacity-30">🏍️</span>
                       </div>
                     )}
-                    {/* Status Badge */}
-                    <div className="absolute top-4 right-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
-                          bike.status
-                        )}`}
-                      >
-                        {bike.status}
-                      </span>
-                    </div>
                     {/* Category Badge */}
                     <div className="absolute top-4 left-4">
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-gray-800 backdrop-blur-sm">
                         {bike.category}
                       </span>
                     </div>
+                    {/* Stock Status Badge */}
+                    {bike.quantity === 0 && (
+                      <div className="absolute top-4 right-4">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bike Details */}
@@ -443,20 +441,14 @@ export default function BikesPage() {
                           router.push(`/booking/${bike.id}`);
                         }
                       }}
-                      disabled={bike.status !== "AVAILABLE" || bike.quantity === 0}
+                      disabled={bike.quantity === 0}
                       className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 ${
-                        bike.status === "AVAILABLE" && bike.quantity > 0
+                        bike.quantity > 0
                           ? "bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 hover:shadow-lg"
                           : "bg-gray-200 text-gray-500 cursor-not-allowed"
                       }`}
                     >
-                      {bike.quantity === 0
-                        ? "Out of Stock"
-                        : bike.status === "AVAILABLE"
-                        ? "Book Now"
-                        : bike.status === "RENTED"
-                        ? "Currently Rented"
-                        : "Under Maintenance"}
+                      {bike.quantity === 0 ? "Out of Stock" : "Book Now"}
                     </button>
                   </div>
                 </div>
