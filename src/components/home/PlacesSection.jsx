@@ -126,12 +126,17 @@ export default function PlacesSection() {
         
         // Handle the API response structure: { STS, MSG, CONTENT }
         if (response && response.STS === "200" && response.CONTENT) {
-          setPlaces(response.CONTENT);
+          // Filter only active places
+          const activePlaces = response.CONTENT.filter(place => place.isActive === true);
+          setPlaces(activePlaces);
         } else if (response && Array.isArray(response.CONTENT)) {
-          setPlaces(response.CONTENT);
+          // Filter only active places
+          const activePlaces = response.CONTENT.filter(place => place.isActive === true);
+          setPlaces(activePlaces);
         } else if (Array.isArray(response)) {
-          // Fallback for direct array response
-          setPlaces(response);
+          // Fallback for direct array response - Filter only active places
+          const activePlaces = response.filter(place => place.isActive === true);
+          setPlaces(activePlaces);
         } else {
           setPlaces([]);
           setError(response?.MSG || "Failed to load places");

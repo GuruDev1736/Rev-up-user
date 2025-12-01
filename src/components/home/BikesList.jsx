@@ -239,16 +239,20 @@ export default function BikesList() {
         const response = await getAllBikes();
 
         if (response && response.STS === "200" && response.CONTENT) {
-          setBikes(response.CONTENT);
+          // Filter bikes from active places only
+          const activeBikes = response.CONTENT.filter(bike => bike.place?.isActive === true);
+          setBikes(activeBikes);
           // Extract unique categories
           const uniqueCategories = [
-            ...new Set(response.CONTENT.map((bike) => bike.category)),
+            ...new Set(activeBikes.map((bike) => bike.category)),
           ].filter(Boolean);
           setCategories(uniqueCategories);
         } else if (Array.isArray(response)) {
-          setBikes(response);
+          // Filter bikes from active places only
+          const activeBikes = response.filter(bike => bike.place?.isActive === true);
+          setBikes(activeBikes);
           const uniqueCategories = [
-            ...new Set(response.map((bike) => bike.category)),
+            ...new Set(activeBikes.map((bike) => bike.category)),
           ].filter(Boolean);
           setCategories(uniqueCategories);
         } else {
