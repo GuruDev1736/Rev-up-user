@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getUserBookings, downloadInvoice, cancelBooking } from "@/api/bookings";
+import { getUserBookings, downloadInvoice, cancelBooking, extendBookingEndDate } from "@/api/bookings";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import fallbackImage from "@/app/images/house.jpg";
+import { initiateRazorpayPayment } from "@/lib/razorpay";
 
 // Cancel Booking Dialog Component
 const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
@@ -129,6 +130,375 @@ const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
   );
 };
 
+// Extend Time Dialog Component
+const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDate, pricePerHour }) => {
+  const [extendOption, setExtendOption] = useState(""); // "hour" or "day"
+  const [hours, setHours] = useState(1);
+  const [days, setDays] = useState(1);
+  const [extending, setExtending] = useState(false);
+
+  // Calculate new end time based on hours
+  const calculateNewEndTime = () => {
+    if (!currentEndDate) return null;
+    const endDate = new Date(currentEndDate);
+    
+    if (extendOption === "hour" && hours > 0) {
+      endDate.setHours(endDate.getHours() + hours);
+      return endDate;
+    } else if (extendOption === "day") {
+      endDate.setDate(endDate.getDate() + days);
+    }
+    
+    return endDate;
+  };
+
+  // Calculate price for extension
+  const calculateExtensionPrice = () => {
+    if (extendOption === "hour" && hours > 0) {
+      return hours * (pricePerHour || 0);
+    } else if (extendOption === "day") {
+      // Assuming 24 hours per day
+      return days * 24 * (pricePerHour || 0);
+    }
+    return 0;
+  };
+
+  // Format time for display
+  const formatEndTime = () => {
+    const endDate = new Date(currentEndDate);
+    return endDate.toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const calculateNewEndDate = () => {
+    return calculateNewEndTime();
+  };
+
+  const formatDateTime = (date) => {
+    if (!date) return "";
+    return date.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // Format date for API (YYYY-MM-DD HH:mm)
+  const formatDateForAPI = (date) => {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
+  const handleConfirm = async () => {
+    if (!extendOption) {
+      alert("Please select an extension option");
+      return;
+    }
+
+    if (extendOption === "hour" && hours <= 0) {
+      alert("Please enter a valid number of hours");
+      return;
+    }
+
+    setExtending(true);
+    try {
+      const extensionData = {
+        extendBy: extendOption,
+        hours: extendOption === "hour" ? hours : null,
+        days: extendOption === "day" ? days : null,
+        price: calculateExtensionPrice(),
+        newEndDate: calculateNewEndTime()
+      };
+      await onConfirm(extensionData);
+      handleClose();
+    } catch (error) {
+      alert(error.message || "Failed to extend booking");
+    } finally {
+      setExtending(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!extending) {
+      setExtendOption("");
+      setHours(1);
+      setDays(1);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 my-8 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 sticky top-0 bg-white pb-2 border-b border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900">Extend Booking Time</h3>
+          <button
+            onClick={handleClose}
+            disabled={extending}
+            className="text-gray-400 hover:text-gray-600 transition"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Info Message */}
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex gap-3">
+            <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-blue-800">
+                Extend your rental period
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                Choose to extend by hours or days. Additional charges will apply.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Booking ID */}
+        <div className="mb-4">
+          <p className="text-sm text-gray-600">
+            Booking ID: <span className="font-semibold text-gray-900">#{bookingId}</span>
+          </p>
+        </div>
+
+        {/* Extension Options */}
+        <div className="mb-6 space-y-4">
+          {/* Extend by Hour */}
+          <div 
+            onClick={() => !extending && setExtendOption("hour")}
+            className={`p-4 border-2 rounded-lg cursor-pointer transition ${
+              extendOption === "hour" 
+                ? "border-red-500 bg-red-50" 
+                : "border-gray-200 hover:border-gray-300"
+            } ${extending ? "cursor-not-allowed opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="extendOption"
+                  value="hour"
+                  checked={extendOption === "hour"}
+                  onChange={() => setExtendOption("hour")}
+                  disabled={extending}
+                  className="w-4 h-4 text-red-600 focus:ring-red-500"
+                />
+                <span className="font-semibold text-gray-900">Extend by Hour</span>
+              </label>
+            </div>
+            {extendOption === "hour" && (
+              <div className="mt-3 space-y-3">
+                {/* Current End Time Display */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Current End Time</p>
+                      <p className="text-sm font-bold text-amber-900">{formatEndTime()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hours Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Hours to Extend:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="168"
+                    value={hours}
+                    onChange={(e) => setHours(parseInt(e.target.value) || 1)}
+                    disabled={extending}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter 1-168 hours (up to 7 days)</p>
+                </div>
+
+                {/* Updated End Time & Price Display */}
+                {hours > 0 && (
+                  <div className="space-y-2">
+                    {/* New End Time */}
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs font-semibold text-green-800 mb-1">New End Time</p>
+                      <p className="text-sm font-bold text-green-900">
+                        {formatDateTime(calculateNewEndTime())}
+                      </p>
+                    </div>
+                    
+                    {/* Price Breakdown */}
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Extension Duration:</span>
+                        <span className="font-semibold text-gray-900">{hours} hour(s)</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Price per Hour:</span>
+                        <span className="font-semibold text-gray-900">₹{(pricePerHour || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                        <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
+                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Extend by Day */}
+          <div 
+            onClick={() => !extending && setExtendOption("day")}
+            className={`p-4 border-2 rounded-lg cursor-pointer transition ${
+              extendOption === "day" 
+                ? "border-red-500 bg-red-50" 
+                : "border-gray-200 hover:border-gray-300"
+            } ${extending ? "cursor-not-allowed opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="extendOption"
+                  value="day"
+                  checked={extendOption === "day"}
+                  onChange={() => setExtendOption("day")}
+                  disabled={extending}
+                  className="w-4 h-4 text-red-600 focus:ring-red-500"
+                />
+                <span className="font-semibold text-gray-900">Extend by Day</span>
+              </label>
+            </div>
+            {extendOption === "day" && (
+              <div className="mt-3 space-y-3">
+                {/* Current End Time Display */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Current End Time</p>
+                      <p className="text-sm font-bold text-amber-900">{formatEndTime()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Days Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Days to Extend:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={days}
+                    onChange={(e) => setDays(parseInt(e.target.value) || 1)}
+                    disabled={extending}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter 1-30 days</p>
+                </div>
+
+                {/* Updated End Time & Price Display */}
+                {days > 0 && (
+                  <div className="space-y-2">
+                    {/* New End Time */}
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs font-semibold text-green-800 mb-1">New End Time</p>
+                      <p className="text-sm font-bold text-green-900">
+                        {formatDateTime(calculateNewEndTime())}
+                      </p>
+                    </div>
+                    
+                    {/* Price Breakdown */}
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Extension Duration:</span>
+                        <span className="font-semibold text-gray-900">{days} day(s) ({days * 24} hours)</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Price per Hour:</span>
+                        <span className="font-semibold text-gray-900">₹{(pricePerHour || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                        <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
+                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* New End Date Preview */}
+        {extendOption && (extendOption === "day" || hours > 0) && (
+          <div className="mb-6 p-3 bg-gray-50 rounded-lg border border-gray-300">
+            <p className="text-xs text-gray-500 mb-1">Final Return Date & Time:</p>
+            <p className="text-sm font-semibold text-gray-900">
+              {formatDateTime(calculateNewEndDate())}
+            </p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3 sticky bottom-0 bg-white pt-4 border-t border-gray-200 mt-4">
+          <button
+            onClick={handleClose}
+            disabled={extending}
+            className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={extending || !extendOption || (extendOption === "hour" && hours <= 0)}
+            className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {extending ? (
+              <>
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Extending...
+              </>
+            ) : (
+              "Confirm Extension"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Booking Status Badge Component
 const StatusBadge = ({ status }) => {
   const getStatusStyle = () => {
@@ -158,11 +528,15 @@ const StatusBadge = ({ status }) => {
 };
 
 // Booking Card Component
-const BookingCard = ({ booking, onBookingCancelled, showCancelButton }) => {
+const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) => {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showExtendDialog, setShowExtendDialog] = useState(false);
   const startDate = new Date(booking.startDateTime);
   const endDate = new Date(booking.endDateTime);
   const now = new Date();
+  
+  // Check if booking is active
+  const isActiveBooking = booking.bookingStatus?.toUpperCase() === "ACTIVE";
 
   const formatDate = (date) => {
     return date.toLocaleDateString("en-IN", {
@@ -173,6 +547,17 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton }) => {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  // Format date for API (YYYY-MM-DD HH:mm)
+  const formatDateForAPI = (date) => {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
   };
 
   const calculateDuration = () => {
@@ -200,6 +585,46 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton }) => {
     }
   };
 
+  const handleExtendBooking = async (extensionData) => {
+    try {
+      // Initiate Razorpay payment
+      await initiateRazorpayPayment({
+        amount: extensionData.price,
+        description: `Extend booking #${booking.id} by ${extensionData.extendBy === "hour" ? extensionData.hours + " hour(s)" : extensionData.days + " day(s)"}`,
+        prefill: {
+          name: user?.firstName + " " + user?.lastName,
+          email: user?.email,
+          contact: user?.mobileNumber,
+        },
+        onSuccess: async (paymentResponse) => {
+          try {
+            // Format new end date for API
+            const formattedEndDate = formatDateForAPI(extensionData.newEndDate);
+            
+            // Call API to update booking end date
+            const result = await extendBookingEndDate(booking.id, formattedEndDate);
+            
+            alert(`Booking extended successfully! Payment ID: ${paymentResponse.razorpay_payment_id}`);
+            
+            // Refresh bookings after extension
+            if (onBookingCancelled) {
+              onBookingCancelled();
+            }
+          } catch (apiError) {
+            console.error("Error updating booking:", apiError);
+            alert("Payment successful but failed to update booking. Please contact support with Payment ID: " + paymentResponse.razorpay_payment_id);
+          }
+        },
+        onFailure: (error) => {
+          console.error("Payment failed:", error);
+          throw new Error("Payment failed or cancelled");
+        },
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
+
   return (
     <>
       <CancelDialog
@@ -207,6 +632,14 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton }) => {
         onClose={() => setShowCancelDialog(false)}
         onConfirm={handleCancelBooking}
         bookingId={booking.id}
+      />
+      <ExtendTimeDialog
+        isOpen={showExtendDialog}
+        onClose={() => setShowExtendDialog(false)}
+        onConfirm={handleExtendBooking}
+        bookingId={booking.id}
+        currentEndDate={booking.endDateTime}
+        pricePerHour={booking.bike?.pricePerHour || 0}
       />
     <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
       <div className="md:flex">
@@ -355,6 +788,27 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton }) => {
 
           {/* Actions */}
           <div className="flex gap-3 flex-wrap">
+            {isActiveBooking && (
+              <button
+                onClick={() => setShowExtendDialog(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Extend Time
+              </button>
+            )}
             {showCancelButton && (
               <button
                 onClick={() => setShowCancelDialog(true)}
@@ -628,6 +1082,7 @@ export default function YourRidesPage() {
                 booking={booking} 
                 onBookingCancelled={handleBookingCancelled}
                 showCancelButton={activeTab === "UPCOMING"}
+                user={user}
               />
             ))}
           </div>

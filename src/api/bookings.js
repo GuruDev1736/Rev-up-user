@@ -100,3 +100,30 @@ export const downloadInvoice = (invoiceUrl, bookingId) => {
   link.click();
   document.body.removeChild(link);
 };
+
+/**
+ * Extend booking end date
+ * @param {number} bookingId - Booking ID
+ * @param {string} endDate - New end date in format "YYYY-MM-DD HH:mm"
+ * @returns {Promise<Object>} Updated booking response
+ */
+export const extendBookingEndDate = async (bookingId, endDate) => {
+  try {
+    const response = await apiPut(
+      `/api/bookings/end-date/${bookingId}?endDate=${encodeURIComponent(endDate)}`
+    );
+
+    if (response.STS === "200" && response.CONTENT) {
+      return {
+        success: true,
+        booking: response.CONTENT,
+        message: response.MSG || "Booking extended successfully",
+      };
+    } else {
+      throw new Error(response?.MSG || "Failed to extend booking");
+    }
+  } catch (error) {
+    console.error("Error extending booking:", error);
+    throw error;
+  }
+};
