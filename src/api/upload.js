@@ -17,9 +17,9 @@ export const uploadDocument = async (file, userId) => {
     // Convert file to base64
     const base64Data = await fileToBase64(file);
 
-    // Prepare request payload
+    // Prepare request payload - trim filename to remove any whitespace
     const payload = {
-      fileName: file.name,
+      fileName: file.name.trim(),
       fileData: base64Data,
       userId: userId.toString(),
     };
