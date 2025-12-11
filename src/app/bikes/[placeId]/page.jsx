@@ -434,7 +434,7 @@ export default function BikesPage() {
                     {/* Action Button */}
                     <button
                       onClick={() => {
-                        if (bike.status === "AVAILABLE") {
+                        if (bike.quantity > 0) {
                           // Store bike data in localStorage for the booking page
                           localStorage.setItem("selectedBike", JSON.stringify(bike));
                           // Navigate to booking page

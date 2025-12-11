@@ -6,6 +6,7 @@ import Image from "next/image";
 import { uploadDocument } from "@/api/upload";
 import { createBooking } from "@/api/bookings";
 import { getBikeById } from "@/api/bikes";
+import { applyCoupon, submitCouponUsage } from "@/api/coupons";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import Container from "@/components/common/Container";
@@ -59,6 +60,10 @@ export default function BookingPage() {
   const [permanentAddress, setPermanentAddress] = useState("");
   const [sameAsCurrentAddress, setSameAsCurrentAddress] = useState(false);
   const [alternateMobile, setAlternateMobile] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   useEffect(() => {
     const fetchBikeData = async () => {
@@ -294,7 +299,7 @@ export default function BookingPage() {
   };
 
   const calculateBooking = () => {
-    if (!fromDate || !fromTime || !toDate || !toTime) return { days: 0, totalCost: 0 };
+    if (!fromDate || !fromTime || !toDate || !toTime) return { days: 0, totalCost: 0, discount: 0, finalCost: 0 };
 
     const from = new Date(`${fromDate}T${fromTime}`);
     const to = new Date(`${toDate}T${toTime}`);
@@ -302,16 +307,68 @@ export default function BookingPage() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     const pricePerDay = getPriceByPeriod();
+    const subtotal = diffDays * pricePerDay;
+    let discount = 0;
+    
+    // Apply coupon discount if available (percentage based)
+    if (appliedCoupon && appliedCoupon.discount) {
+      discount = (subtotal * appliedCoupon.discount) / 100;
+    }
+
+    const finalCost = Math.max(0, subtotal - discount);
 
     return {
       days: diffDays,
-      totalCost: diffDays * pricePerDay,
+      totalCost: subtotal,
+      discount: discount,
+      finalCost: finalCost,
       fromDateTime: formatForAPI(fromDate, fromTime),
       toDateTime: formatForAPI(toDate, toTime),
     };
   };
 
-  const { days, totalCost, fromDateTime, toDateTime } = calculateBooking();
+  const { days, totalCost, discount, finalCost, fromDateTime, toDateTime } = calculateBooking();
+
+  // Apply coupon handler
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    if (totalCost <= 0) {
+      setCouponError("Please select booking dates first");
+      return;
+    }
+
+    setApplyingCoupon(true);
+    setCouponError("");
+
+    try {
+      // Call API to validate and get coupon details
+      const response = await applyCoupon(couponCode);
+      
+      if (response.success && response.coupon) {
+        setAppliedCoupon(response.coupon);
+        setCouponError("");
+      } else {
+        setCouponError("Invalid coupon code");
+        setAppliedCoupon(null);
+      }
+    } catch (error) {
+      setCouponError(error.message || "Failed to apply coupon. Please try again.");
+      setAppliedCoupon(null);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  // Remove coupon handler
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError("");
+  };
 
   const handleFileChange = (e, type) => {
     const file = e.target.files[0];
@@ -509,11 +566,11 @@ export default function BookingPage() {
       setUploadProgress("Processing payment...");
       setLoading(false);
 
-      const { totalCost } = calculateBooking();
+      const { finalCost } = calculateBooking();
 
       await initiateRazorpayPayment({
-        amount: totalCost,
-        description: `Bike Rental: ${bike.bikeName}`,
+        amount: finalCost,
+        description: `Bike Rental: ${bike.bikeName}${appliedCoupon ? ` (Coupon: ${appliedCoupon.code})` : ''}`,
         prefill: {
           name: user.fullName || user.email,
           email: user.email,
@@ -530,7 +587,7 @@ export default function BookingPage() {
               startDateTime: startDateTime,
               endDateTime: endDateTime,
               paymentId: paymentResponse.razorpay_payment_id,
-              totalAmount: totalCost,
+              totalAmount: finalCost,
               aadharcardUrl: aadharUpload.url,
               drivingLicenseUrl: licenseUpload.url,
               presentAddress: currentAddress,
@@ -538,6 +595,7 @@ export default function BookingPage() {
               alternateContactNumber: alternateMobile,
               rentalPeriodType: pricingPeriod.toUpperCase(), // DAY, WEEK, or MONTH
               quantity: 1, // User can only book one bike at a time
+              couponCode: appliedCoupon?.code || null,
             };
 
             console.log("Creating booking with data:", bookingData);
@@ -545,6 +603,17 @@ export default function BookingPage() {
             const bookingResponse = await createBooking(bookingData);
 
             if (bookingResponse.success && bookingResponse.booking) {
+              // Submit coupon usage if coupon was applied
+              if (appliedCoupon?.code) {
+                try {
+                  await submitCouponUsage(appliedCoupon.code);
+                  console.log("Coupon usage recorded successfully");
+                } catch (error) {
+                  console.error("Failed to record coupon usage:", error);
+                  // Don't fail the booking if coupon submission fails
+                }
+              }
+              
               setBookingResult(bookingResponse.booking);
               setShowInvoice(true);
 
@@ -564,6 +633,9 @@ export default function BookingPage() {
               setPermanentAddress("");
               setSameAsCurrentAddress(false);
               setAlternateMobile("");
+              setCouponCode("");
+              setAppliedCoupon(null);
+              setCouponError("");
             } else {
               throw new Error(bookingResponse.message || "Booking failed");
             }
@@ -856,6 +928,74 @@ export default function BookingPage() {
                 </div>
               </div>
 
+              {/* Coupon Section - Always visible */}
+              <div className="mt-4 bg-white border-2 border-gray-200 rounded-xl p-4">
+                <div className="border-b border-gray-200 pb-3 mb-3">
+                  {!appliedCoupon ? (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Have a coupon code?
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          placeholder="Enter code"
+                          disabled={applyingCoupon || days === 0}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none text-sm uppercase disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                        <button
+                          onClick={handleApplyCoupon}
+                          disabled={applyingCoupon || !couponCode.trim() || days === 0}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {applyingCoupon ? "Applying..." : "Apply"}
+                        </button>
+                      </div>
+                      {days === 0 && (
+                        <p className="text-xs text-amber-600 flex items-center gap-1">
+                          <span>ℹ️</span>
+                          <span>Please select booking dates first to apply coupon</span>
+                        </p>
+                      )}
+                      {couponError && days > 0 && (
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                          {couponError}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm font-semibold text-green-800">
+                            Coupon Applied: {appliedCoupon.code}
+                          </span>
+                        </div>
+                        <button
+                          onClick={handleRemoveCoupon}
+                          className="text-red-600 hover:text-red-700 text-xs font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-green-700">Discount:</span>
+                        <span className="text-green-700 font-semibold">-₹{discount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Price Summary */}
               {days > 0 && (
                 <div className="mt-4 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
                   <div className="mb-2">
@@ -871,11 +1011,32 @@ export default function BookingPage() {
                       Rental period: {getPeriodLabel()} (₹{getTotalPriceForPeriod()?.toFixed(2)})
                     </p>
                   </div>
-                  <div className="flex justify-between items-center pt-2 border-t border-red-300">
-                    <span className="text-lg font-bold text-gray-900">Total Cost:</span>
-                    <span className="text-2xl font-bold text-red-600">
-                      ₹{totalCost.toFixed(2)}
+                  <div className="flex justify-between items-center pb-2 border-b border-red-300 mb-3">
+                    <span className="text-gray-700">Subtotal:</span>
+                    <span className="text-gray-900 font-semibold">₹{totalCost.toFixed(2)}</span>
+                  </div>
+                  
+                  {appliedCoupon && discount > 0 && (
+                    <div className="flex justify-between items-center pb-2 mb-3">
+                      <span className="text-green-700 text-sm">Discount ({appliedCoupon.code}):</span>
+                      <span className="text-green-700 font-semibold">-₹{discount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-3 border-t border-red-300">
+                    <span className="text-lg font-bold text-gray-900">
+                      Total {appliedCoupon ? "to Pay" : "Cost"}:
                     </span>
+                    <div className="text-right">
+                      {appliedCoupon && discount > 0 && (
+                        <div className="text-sm text-gray-500 line-through">
+                          ₹{totalCost.toFixed(2)}
+                        </div>
+                      )}
+                      <span className="text-2xl font-bold text-red-600">
+                        ₹{finalCost.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1284,10 +1445,31 @@ export default function BookingPage() {
                       <span className="text-gray-600">Rate per day:</span>
                       <span className="font-semibold text-gray-900">₹{getPriceByPeriod()?.toFixed(2)}</span>
                     </div>
+                    
+                    {appliedCoupon && discount > 0 && (
+                      <>
+                        <div className="flex justify-between text-sm border-t pt-3">
+                          <span className="text-gray-600">Subtotal:</span>
+                          <span className="font-semibold text-gray-900">₹{totalCost.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-green-600">Discount ({appliedCoupon.code}):</span>
+                          <span className="font-semibold text-green-600">-₹{discount.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                    
                     <div className="border-t pt-3">
                       <div className="flex justify-between">
                         <span className="font-bold text-gray-900">Total Amount:</span>
-                        <span className="text-2xl font-bold text-red-600">₹{totalCost.toFixed(2)}</span>
+                        <div className="text-right">
+                          {appliedCoupon && discount > 0 && (
+                            <div className="text-sm text-gray-400 line-through mb-1">
+                              ₹{totalCost.toFixed(2)}
+                            </div>
+                          )}
+                          <span className="text-2xl font-bold text-red-600">₹{finalCost.toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </>

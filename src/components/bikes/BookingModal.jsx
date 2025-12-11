@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { uploadDocument } from "@/api/upload";
 import { createBooking } from "@/api/bookings";
+import { applyCoupon } from "@/api/coupons";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import InvoiceModal from "./InvoiceModal";
@@ -20,6 +21,10 @@ export default function BookingModal({ bike, isOpen, onClose }) {
   const [uploadProgress, setUploadProgress] = useState("");
   const [bookingResult, setBookingResult] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   if (!isOpen) return null;
 
@@ -82,22 +87,75 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
   // Calculate duration and total cost
   const calculateBooking = () => {
-    if (!fromDate || !fromTime || !toDate || !toTime) return { days: 0, totalCost: 0 };
+    if (!fromDate || !fromTime || !toDate || !toTime) return { days: 0, totalCost: 0, discount: 0, finalCost: 0 };
 
     const from = new Date(`${fromDate}T${fromTime}`);
     const to = new Date(`${toDate}T${toTime}`);
     const diffTime = Math.abs(to - from);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+    const subtotal = diffDays * bike.pricePerDay;
+    let discount = 0;
+    
+    // Apply coupon discount if available (percentage based)
+    if (appliedCoupon && appliedCoupon.discount) {
+      discount = (subtotal * appliedCoupon.discount) / 100;
+    }
+
+    const finalCost = Math.max(0, subtotal - discount);
+
     return {
       days: diffDays,
-      totalCost: diffDays * bike.pricePerDay,
-      fromDateTime: formatForAPI(fromDate, fromTime), // Format: "2025-10-16 13:46"
+      totalCost: subtotal,
+      discount: discount,
+      finalCost: finalCost,
+      fromDateTime: formatForAPI(fromDate, fromTime),
       toDateTime: formatForAPI(toDate, toTime),
     };
   };
 
-  const { days, totalCost, fromDateTime, toDateTime } = calculateBooking();
+  const { days, totalCost, discount, finalCost, fromDateTime, toDateTime } = calculateBooking();
+
+  // Apply coupon handler
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    if (totalCost <= 0) {
+      setCouponError("Please select booking dates first");
+      return;
+    }
+
+    setApplyingCoupon(true);
+    setCouponError("");
+
+    try {
+      // Call API to validate and get coupon details
+      const response = await applyCoupon(couponCode);
+      
+      if (response.success && response.coupon) {
+        setAppliedCoupon(response.coupon);
+        setCouponError("");
+      } else {
+        setCouponError("Invalid coupon code");
+        setAppliedCoupon(null);
+      }
+    } catch (error) {
+      setCouponError(error.message || "Failed to apply coupon. Please try again.");
+      setAppliedCoupon(null);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  // Remove coupon handler
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError("");
+  };
 
   const handleFileChange = (e, type) => {
     const file = e.target.files[0];
@@ -174,13 +232,13 @@ export default function BookingModal({ bike, isOpen, onClose }) {
       setUploadProgress("Processing payment...");
       setLoading(false); // Allow Razorpay modal to open
 
-      // Calculate total amount
-      const { totalCost } = calculateBooking();
+      // Calculate total amount (use final cost after discount)
+      const { finalCost } = calculateBooking();
 
       // Step 3: Initiate Razorpay Payment
       await initiateRazorpayPayment({
-        amount: totalCost,
-        description: `Bike Rental: ${bike.bikeName}`,
+        amount: finalCost,
+        description: `Bike Rental: ${bike.bikeName}${appliedCoupon ? ` (Coupon: ${appliedCoupon.code})` : ''}`,
         prefill: {
           name: user.fullName || user.email,
           email: user.email,
@@ -198,9 +256,10 @@ export default function BookingModal({ bike, isOpen, onClose }) {
               startDateTime: startDateTime,
               endDateTime: endDateTime,
               paymentId: paymentResponse.razorpay_payment_id,
-              totalAmount: totalCost,
+              totalAmount: finalCost,
               aadharcardUrl: aadharUpload.url,
               drivingLicenseUrl: licenseUpload.url,
+              couponCode: appliedCoupon?.code || null,
             };
 
             console.log("Creating booking with data:", bookingData);
@@ -448,13 +507,84 @@ export default function BookingModal({ bike, isOpen, onClose }) {
                     ₹{bike.pricePerDay.toFixed(2)} × {days}
                   </span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-red-300">
+                <div className="flex justify-between items-center pb-2">
+                  <span className="text-gray-700">Subtotal:</span>
+                  <span className="text-gray-900 font-semibold">₹{totalCost.toFixed(2)}</span>
+                </div>
+                
+                {/* Coupon Section */}
+                <div className="border-t border-red-300 pt-3 mb-3">
+                  {!appliedCoupon ? (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Have a coupon code?
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          placeholder="Enter code"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none text-sm uppercase"
+                          disabled={applyingCoupon}
+                        />
+                        <button
+                          onClick={handleApplyCoupon}
+                          disabled={applyingCoupon || !couponCode.trim()}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {applyingCoupon ? "Applying..." : "Apply"}
+                        </button>
+                      </div>
+                      {couponError && (
+                        <p className="text-xs text-red-600 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                          {couponError}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm font-semibold text-green-800">
+                            Coupon Applied: {appliedCoupon.code}
+                          </span>
+                        </div>
+                        <button
+                          onClick={handleRemoveCoupon}
+                          className="text-red-600 hover:text-red-700 text-xs font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-green-700">Discount:</span>
+                        <span className="text-green-700 font-semibold">-₹{discount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center pt-3 border-t border-red-300">
                   <span className="text-lg font-bold text-gray-900">
-                    Total Cost:
+                    Total {appliedCoupon ? "to Pay" : "Cost"}:
                   </span>
-                  <span className="text-2xl font-bold text-red-600">
-                    ₹{totalCost.toFixed(2)}
-                  </span>
+                  <div className="text-right">
+                    {appliedCoupon && discount > 0 && (
+                      <div className="text-sm text-gray-500 line-through">
+                        ₹{totalCost.toFixed(2)}
+                      </div>
+                    )}
+                    <span className="text-2xl font-bold text-red-600">
+                      ₹{finalCost.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}

@@ -56,9 +56,10 @@ export const apiCall = async (endpoint, options = {}) => {
     if (response.status === 401 && includeAuth) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Redirect to login page
+        window.location.href = '/login';
       }
-      // Optionally redirect to login
-      // window.location.href = '/login';
       throw new Error('Authentication failed. Please login again.');
     }
 
@@ -70,6 +71,16 @@ export const apiCall = async (endpoint, options = {}) => {
     return await response.json();
   } catch (error) {
     console.error(`API call failed for ${endpoint}:`, error.message);
+    
+    // Check if error message indicates authentication failure
+    if (error.message && error.message.includes('Authentication failed')) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
+    
     throw error;
   }
 };
