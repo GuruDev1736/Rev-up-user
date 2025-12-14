@@ -1210,7 +1210,7 @@ export default function BookingPage() {
                 </span>
               </div>
               <p className="text-sm text-gray-600 mb-4">
-                Verify your documents via DigiLocker (recommended) or upload manually
+                Upload your documents for verification
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1260,27 +1260,6 @@ export default function BookingPage() {
 
                   {!aadharVerified && !aadharCard && (
                     <div className="space-y-2">
-                      {/* DigiLocker Button */}
-                      <button
-                        onClick={() => handleDigiLockerVerification('aadhar')}
-                        disabled={loading}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 12.5v-5a1 1 0 012 0v5a1 1 0 01-2 0zM10 15a1 1 0 100-2 1 1 0 000 2z"/>
-                        </svg>
-                        Verify via DigiLocker
-                      </button>
-
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-gray-300"></div>
-                        </div>
-                        <div className="relative flex justify-center text-xs">
-                          <span className="px-2 bg-white text-gray-500">OR</span>
-                        </div>
-                      </div>
-
                       {/* Manual Upload */}
                       <input
                         type="file"
@@ -1348,27 +1327,6 @@ export default function BookingPage() {
 
                   {!licenseVerified && !drivingLicense && (
                     <div className="space-y-2">
-                      {/* DigiLocker Button */}
-                      <button
-                        onClick={() => handleDigiLockerVerification('license')}
-                        disabled={loading}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 12.5v-5a1 1 0 012 0v5a1 1 0 01-2 0zM10 15a1 1 0 100-2 1 1 0 000 2z"/>
-                        </svg>
-                        Verify via DigiLocker
-                      </button>
-
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-gray-300"></div>
-                        </div>
-                        <div className="relative flex justify-center text-xs">
-                          <span className="px-2 bg-white text-gray-500">OR</span>
-                        </div>
-                      </div>
-
                       {/* Manual Upload */}
                       <input
                         type="file"
@@ -1391,22 +1349,25 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <div className="text-xs text-blue-800">
-                    <p className="font-semibold mb-1">Why DigiLocker?</p>
-                    <ul className="space-y-1 list-disc list-inside">
-                      <li>Instant verification (no upload needed)</li>
-                      <li>Government-verified documents</li>
-                      <li>Secure and encrypted</li>
-                      <li>Faster booking process</li>
-                    </ul>
+              {/* DigiLocker info - temporarily disabled */}
+              {false && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-xs text-blue-800">
+                      <p className="font-semibold mb-1">Why DigiLocker?</p>
+                      <ul className="space-y-1 list-disc list-inside">
+                        <li>Instant verification (no upload needed)</li>
+                        <li>Government-verified documents</li>
+                        <li>Secure and encrypted</li>
+                        <li>Faster booking process</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Terms and Conditions */}
