@@ -36,6 +36,7 @@ export const apiCall = async (endpoint, options = {}) => {
     body = null,
     includeAuth = true,
     customHeaders = {},
+    preventRedirect = false,
     ...otherOptions
   } = options;
 
@@ -54,7 +55,7 @@ export const apiCall = async (endpoint, options = {}) => {
   try {
     const response = await fetch(url, config);
     if (response.status === 401 && includeAuth) {
-      if (typeof window !== 'undefined') {
+      if (!preventRedirect && typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         // Redirect to login page
@@ -73,7 +74,7 @@ export const apiCall = async (endpoint, options = {}) => {
     console.error(`API call failed for ${endpoint}:`, error.message);
     
     // Check if error message indicates authentication failure
-    if (error.message && error.message.includes('Authentication failed')) {
+    if (!preventRedirect && error.message && error.message.includes('Authentication failed')) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');

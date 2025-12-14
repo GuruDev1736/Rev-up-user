@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Container from "../common/Container";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { checkActiveBooking } from "@/api/bookings";
 import image from "@/app/images/house.jpg";
 import banner from "@/app/images/homepage-banner.avif";
 import Accordian from "./Accordian";
@@ -47,7 +49,19 @@ const TestimonialCard = ({ name, description }) => (
 
 export default function HeroSection() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const [hasActiveBooking, setHasActiveBooking] = useState(false);
+
+  useEffect(() => {
+    const checkUserBooking = async () => {
+      if (user?.userId) {
+        const result = await checkActiveBooking(user.userId);
+        setHasActiveBooking(result.hasActiveBooking);
+      }
+    };
+
+    checkUserBooking();
+  }, [user]);
 
   const handleListVehicleClick = () => {
     if (isAuthenticated) {
@@ -91,6 +105,39 @@ export default function HeroSection() {
 
       {/* Hero Section Ends */}
 
+      {/* Active Booking Warning - Show at top of page */}
+      {isAuthenticated && hasActiveBooking && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 border-b-4 border-amber-600">
+          <Container className="py-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">🚴</span>
+                <div>
+                  <h3 className="text-lg font-bold text-white">You have an active booking</h3>
+                  <p className="text-sm text-amber-50">
+                    You can only book one bike at a time. If you need another bike, please submit a request through the Request Bike section.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => router.push('/your-rides')}
+                  className="px-4 py-2 bg-white text-amber-600 rounded-lg font-semibold hover:bg-amber-50 transition-all whitespace-nowrap"
+                >
+                  View Your Rides
+                </button>
+                <button
+                  onClick={() => router.push('/contact')}
+                  className="px-4 py-2 bg-amber-700 text-white rounded-lg font-semibold hover:bg-amber-800 transition-all whitespace-nowrap"
+                >
+                  Request Bike
+                </button>
+              </div>
+            </div>
+          </Container>
+        </div>
+      )}
+
       {/* Places Section */}
       <section className="bg-white w-full flex flex-col justify-center px-4 py-16">
         <div className="text-center mb-12">
@@ -103,7 +150,7 @@ export default function HeroSection() {
         </div>
         
         <div className="flex justify-center w-full">
-          <PlacesSection />
+          <PlacesSection hasActiveBooking={hasActiveBooking} />
         </div>
       </section>
 
@@ -119,7 +166,7 @@ export default function HeroSection() {
 
         {/* Bikes List Section */}
         <div className="flex items-center justify-center w-full">
-          <BikesList />
+          <BikesList hasActiveBooking={hasActiveBooking} />
         </div>
       </div>
 

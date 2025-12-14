@@ -38,7 +38,7 @@ const PlaceImage = ({ src, alt, className }) => {
 };
 
 // Reusable Place Card Component
-const PlaceCard = ({ place, isAuthenticated }) => (
+const PlaceCard = ({ place, isAuthenticated, hasActiveBooking }) => (
   <div className="group relative rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
     {/* Image Container */}
     <div className="relative h-56 overflow-hidden">
@@ -77,13 +77,19 @@ const PlaceCard = ({ place, isAuthenticated }) => (
 
       {/* Action Button - Only show if user is authenticated */}
       {isAuthenticated && (
-        <Link href={`/bikes/${place.id}`} className="block">
+        <Link href={hasActiveBooking ? "#" : `/bikes/${place.id}`} className="block">
           <button
             aria-label={`Explore bikes at ${place.placeName}`}
-            className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-xl px-5 py-3 hover:from-red-700 hover:to-red-800 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2 group"
+            disabled={hasActiveBooking}
+            className={`w-full font-semibold rounded-xl px-5 py-3 transition-all duration-300 shadow-md flex items-center justify-center gap-2 group ${
+              hasActiveBooking
+                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                : "bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 hover:shadow-lg"
+            }`}
           >
-            <span>Explore Bikes</span>
-            <svg 
+            <span>{hasActiveBooking ? "Booking Not Available" : "Explore Bikes"}</span>
+            {!hasActiveBooking && (
+              <svg 
               className="w-5 h-5 group-hover:translate-x-1 transition-transform" 
               fill="none" 
               stroke="currentColor" 
@@ -91,6 +97,7 @@ const PlaceCard = ({ place, isAuthenticated }) => (
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
+            )}
           </button>
         </Link>
       )}
@@ -111,7 +118,7 @@ const PlaceCard = ({ place, isAuthenticated }) => (
   </div>
 );
 
-export default function PlacesSection() {
+export default function PlacesSection({ hasActiveBooking = false }) {
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -200,7 +207,7 @@ export default function PlacesSection() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl">
       {places.map((place, index) => (
-        <PlaceCard key={place.id || index} place={place} isAuthenticated={isAuthenticated} />
+        <PlaceCard key={place.id || index} place={place} isAuthenticated={isAuthenticated} hasActiveBooking={hasActiveBooking} />
       ))}
     </div>
   );

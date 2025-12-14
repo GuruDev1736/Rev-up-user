@@ -58,7 +58,7 @@ const BikeImage = ({ src, alt, className }) => {
 };
 
 // Bike Card Component
-const BikeCard = ({ bike }) => {
+const BikeCard = ({ bike, hasActiveBooking }) => {
   const [pricingPeriod, setPricingPeriod] = useState("day");
   const router = useRouter();
 
@@ -207,14 +207,14 @@ const BikeCard = ({ bike }) => {
           </div>
           <button
             onClick={handleBookNow}
-            disabled={bike.quantity === 0}
+            disabled={bike.quantity === 0 || hasActiveBooking}
             className={`w-full py-2.5 rounded-xl font-semibold transition-all shadow-md transform ${
-              bike.quantity === 0
+              bike.quantity === 0 || hasActiveBooking
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                 : 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 hover:shadow-lg hover:scale-105'
             }`}
           >
-            {bike.quantity === 0 ? 'Out of Stock' : 'Book Now'}
+            {bike.quantity === 0 ? 'Out of Stock' : hasActiveBooking ? 'Booking Not Available' : 'Book Now'}
           </button>
         </div>
       </div>
@@ -222,7 +222,7 @@ const BikeCard = ({ bike }) => {
   );
 };
 
-export default function BikesList() {
+export default function BikesList({ hasActiveBooking = false }) {
   const [bikes, setBikes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -494,7 +494,7 @@ export default function BikesList() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {displayedBikes.map((bike, index) => (
-              <BikeCard key={bike.id || index} bike={bike} />
+              <BikeCard key={bike.id || index} bike={bike} hasActiveBooking={hasActiveBooking} />
             ))}
           </div>
 

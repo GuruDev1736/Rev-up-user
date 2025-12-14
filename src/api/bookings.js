@@ -1,6 +1,35 @@
 import { apiPost, apiGet, apiPut } from "@/lib/apiClient";
 
 /**
+ * Check if user has an active booking
+ * @param {number} userId - User ID
+ * @returns {Promise<Object>} Active booking check result
+ */
+export const checkActiveBooking = async (userId) => {
+  try {
+    const response = await apiGet(`/api/bookings/check/${userId}`, { preventRedirect: true });
+
+    if (response && response.STS === "200") {
+      return {
+        hasActiveBooking: response.CONTENT === true,
+        message: response.MSG || ""
+      };
+    } else {
+      return {
+        hasActiveBooking: false,
+        message: ""
+      };
+    }
+  } catch (error) {
+    // If API fails, allow booking to proceed
+    return {
+      hasActiveBooking: false,
+      message: ""
+    };
+  }
+};
+
+/**
  * Get all bookings for a user
  * @param {number} userId - User ID
  * @returns {Promise<Array>} List of user bookings

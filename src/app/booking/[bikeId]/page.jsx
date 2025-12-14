@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { uploadDocument } from "@/api/upload";
-import { createBooking } from "@/api/bookings";
+import { createBooking, checkActiveBooking } from "@/api/bookings";
 import { getBikeById } from "@/api/bikes";
 import { applyCoupon, submitCouponUsage } from "@/api/coupons";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
@@ -64,6 +64,24 @@ export default function BookingPage() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [hasActiveBooking, setHasActiveBooking] = useState(false);
+  const [checkingBooking, setCheckingBooking] = useState(true);
+
+  // Check for active bookings
+  useEffect(() => {
+    const checkUserBooking = async () => {
+      if (user?.userId) {
+        setCheckingBooking(true);
+        const result = await checkActiveBooking(user.userId);
+        setHasActiveBooking(result.hasActiveBooking);
+        setCheckingBooking(false);
+      } else {
+        setCheckingBooking(false);
+      }
+    };
+
+    checkUserBooking();
+  }, [user]);
 
   useEffect(() => {
     const fetchBikeData = async () => {
@@ -713,6 +731,30 @@ export default function BookingPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Book Your Bike</h1>
           <p className="text-gray-600 mt-2">Complete the booking details to reserve your ride</p>
         </div>
+
+        {/* Active Booking Warning */}
+        {hasActiveBooking && (
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🚫</span>
+              <div>
+                <h3 className="text-lg font-bold text-amber-800">You already have an active booking</h3>
+                <p className="text-sm text-amber-700 mt-1">
+                  You can only book one bike at a time. Please complete or cancel your current ride before making a new booking.
+                </p>
+                <p className="text-xs text-amber-600 mt-2">
+                  💡 You can view your active booking in the "Your Rides" section.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/your-rides')}
+              className="mt-4 px-6 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-all"
+            >
+              View Your Rides
+            </button>
+          </div>
+        )}
 
         {/* Out of Stock Warning */}
         {bike.quantity === 0 && (
@@ -1486,6 +1528,7 @@ export default function BookingPage() {
                 onClick={handleBooking}
                 disabled={
                   loading ||
+                  hasActiveBooking ||
                   bike.quantity === 0 ||
                   !fromDate ||
                   !fromTime ||
@@ -1500,6 +1543,7 @@ export default function BookingPage() {
                 }
                 className={`w-full px-6 py-4 font-semibold rounded-xl transition-all ${
                   loading ||
+                  hasActiveBooking ||
                   bike.quantity === 0 ||
                   !fromDate ||
                   !fromTime ||
@@ -1539,6 +1583,8 @@ export default function BookingPage() {
                     </svg>
                     Processing...
                   </span>
+                ) : hasActiveBooking ? (
+                  "Active Booking Exists - Cannot Book"
                 ) : bike.quantity === 0 ? (
                   "Out of Stock - Cannot Book"
                 ) : (
