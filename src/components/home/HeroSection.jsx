@@ -127,7 +127,7 @@ export default function HeroSection() {
                   View Your Rides
                 </button>
                 <button
-                  onClick={() => router.push('/contact')}
+                  onClick={() => router.push('/request-bike')}
                   className="px-4 py-2 bg-amber-700 text-white rounded-lg font-semibold hover:bg-amber-800 transition-all whitespace-nowrap"
                 >
                   Request Bike

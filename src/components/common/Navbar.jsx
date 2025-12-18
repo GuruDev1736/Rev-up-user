@@ -1,17 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import styles from "@/styles/header.module.css";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { checkActiveBooking } from "@/api/bookings";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showAppDownloadDialog, setShowAppDownloadDialog] = useState(false);
+  const [hasActiveBooking, setHasActiveBooking] = useState(false);
   const pathname = usePathname();
-  const { isAuthenticated, isLogin, logout, loading } = useAuth();
+  const { isAuthenticated, isLogin, logout, loading, user } = useAuth();
+
+  useEffect(() => {
+    const checkUserBooking = async () => {
+      if (user?.userId) {
+        const result = await checkActiveBooking(user.userId);
+        setHasActiveBooking(result.hasActiveBooking);
+      }
+    };
+
+    checkUserBooking();
+  }, [user]);
 
   const handleLogoutClick = () => {
     setShowLogoutDialog(true);
@@ -85,8 +98,26 @@ export default function Navbar() {
             Contact
           </Link>
         </li>
+        {isLogin && hasActiveBooking && (
+          <li className={styles.navLink}>
+            <Link 
+              href="/request-bike"
+              className={isActive("/request-bike") ? "!text-red-600 !font-bold" : ""}
+            >
+              Request Bike
+            </Link>
+          </li>
+        )}
         {isLogin && (
           <>
+            <li className={styles.navLink}>
+              <Link 
+                href="/manage-requests"
+                className={isActive("/manage-requests") ? "!text-red-600 !font-bold" : ""}
+              >
+                Manage Requests
+              </Link>
+            </li>
             <li className={styles.navLink}>
               <Link 
                 href="/profile"
@@ -183,8 +214,28 @@ export default function Navbar() {
               Contact
             </Link>
           </li>
+          {isLogin && hasActiveBooking && (
+            <li className={styles.navLink}>
+              <Link 
+                href="/request-bike" 
+                onClick={() => setIsOpen(false)}
+                className={isActive("/request-bike") ? "!text-red-600 !font-bold" : ""}
+              >
+                Request Bike
+              </Link>
+            </li>
+          )}
           {isLogin && (
             <>
+              <li className={styles.navLink}>
+                <Link 
+                  href="/manage-requests" 
+                  onClick={() => setIsOpen(false)}
+                  className={isActive("/manage-requests") ? "!text-red-600 !font-bold" : ""}
+                >
+                  Manage Requests
+                </Link>
+              </li>
               <li className={styles.navLink}>
                 <Link 
                   href="/profile" 

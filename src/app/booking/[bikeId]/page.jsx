@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { uploadDocument } from "@/api/upload";
 import { createBooking, checkActiveBooking } from "@/api/bookings";
@@ -35,8 +35,12 @@ const getSafeImageSrc = (src) => {
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const bikeId = params.bikeId;
+  
+  // Check if booking from approved request
+  const fromRequest = searchParams.get('fromRequest') === 'true';
 
   const [bike, setBike] = useState(null);
   const [pricingPeriod, setPricingPeriod] = useState("day");
@@ -67,9 +71,16 @@ export default function BookingPage() {
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
   const [checkingBooking, setCheckingBooking] = useState(true);
 
-  // Check for active bookings
+  // Check for active bookings (skip if coming from approved request)
   useEffect(() => {
     const checkUserBooking = async () => {
+      if (fromRequest) {
+        // Skip active booking check if coming from approved request
+        setCheckingBooking(false);
+        setHasActiveBooking(false);
+        return;
+      }
+      
       if (user?.userId) {
         setCheckingBooking(true);
         const result = await checkActiveBooking(user.userId);
@@ -81,7 +92,7 @@ export default function BookingPage() {
     };
 
     checkUserBooking();
-  }, [user]);
+  }, [user, fromRequest]);
 
   useEffect(() => {
     const fetchBikeData = async () => {
