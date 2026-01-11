@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkActiveBooking } from "@/api/bookings";
 import image from "@/app/images/house.jpg";
-import banner from "@/app/images/homepage-banner.avif";
+import banner from "@/app/images/homepage-banner.jpg";
 import Accordian from "./Accordian";
 import TextHover from "./ImageHover";
 import BannersSection from "./BannersSection";
@@ -138,21 +138,23 @@ export default function HeroSection() {
         </div>
       )}
 
-      {/* Places Section */}
-      <section className="bg-white w-full flex flex-col justify-center px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="font-semibold text-3xl sm:text-4xl text-[45px] mb-4">
-            Explore Our Locations
-          </h2>
-          <p className="text-gray-600 text-lg">
-            Discover amazing places where you can find your perfect ride.
-          </p>
-        </div>
-        
-        <div className="flex justify-center w-full">
-          <PlacesSection hasActiveBooking={hasActiveBooking} />
-        </div>
-      </section>
+      {/* Places Section - Only show when logged in */}
+      {isAuthenticated && (
+        <section className="bg-white w-full flex flex-col justify-center px-4 py-16">
+          <div className="text-center mb-12">
+            <h2 className="font-semibold text-3xl sm:text-4xl text-[45px] mb-4">
+              Explore Our Locations
+            </h2>
+            <p className="text-gray-600 text-lg">
+              Discover amazing places where you can find your perfect ride.
+            </p>
+          </div>
+          
+          <div className="flex justify-center w-full">
+            <PlacesSection hasActiveBooking={hasActiveBooking} />
+          </div>
+        </section>
+      )}
 
       <div className="bg-[#fbfbfb] min-h-[70vh] w-full flex flex-col justify-center px-4 py-16">
         <div className="text-center mb-12">

@@ -270,7 +270,7 @@ export default function BikesList({ hasActiveBooking = false }) {
     fetchBikes();
   }, []);
 
-  // Filter bikes based on search query and category
+  // Filter bikes based on search query and category, then sort by availability
   const filteredBikes = bikes.filter((bike) => {
     const matchesSearch =
       bike.bikeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -282,6 +282,11 @@ export default function BikesList({ hasActiveBooking = false }) {
       selectedCategory === "ALL" || bike.category === selectedCategory;
 
     return matchesSearch && matchesCategory;
+  }).sort((a, b) => {
+    // Sort: available bikes (quantity > 0) first, then out of stock (quantity === 0)
+    const aAvailable = (a.quantity || 0) > 0 ? 1 : 0;
+    const bAvailable = (b.quantity || 0) > 0 ? 1 : 0;
+    return bAvailable - aAvailable;
   });
 
   // Get bikes to display based on pagination
