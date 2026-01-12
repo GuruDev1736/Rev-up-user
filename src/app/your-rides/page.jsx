@@ -131,7 +131,7 @@ const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
 };
 
 // Extend Time Dialog Component
-const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDate, pricePerHour }) => {
+const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDate, pricePerHour, pricePerDay }) => {
   const [extendOption, setExtendOption] = useState(""); // "hour" or "day"
   const [hours, setHours] = useState(1);
   const [days, setDays] = useState(1);
@@ -157,8 +157,7 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
     if (extendOption === "hour" && hours > 0) {
       return hours * (pricePerHour || 0);
     } else if (extendOption === "day") {
-      // Assuming 24 hours per day
-      return days * 24 * (pricePerHour || 0);
+      return days * (pricePerDay || 0);
     }
     return 0;
   };
@@ -439,11 +438,11 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="flex justify-between items-center text-sm mb-1">
                         <span className="text-gray-700">Extension Duration:</span>
-                        <span className="font-semibold text-gray-900">{days} day(s) ({days * 24} hours)</span>
+                        <span className="font-semibold text-gray-900">{days} day(s)</span>
                       </div>
                       <div className="flex justify-between items-center text-sm mb-1">
-                        <span className="text-gray-700">Price per Hour:</span>
-                        <span className="font-semibold text-gray-900">₹{(pricePerHour || 0).toFixed(2)}</span>
+                        <span className="text-gray-700">Price per Day:</span>
+                        <span className="font-semibold text-gray-900">₹{(pricePerDay || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-blue-300">
                         <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
@@ -640,6 +639,7 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
         bookingId={booking.id}
         currentEndDate={booking.endDateTime}
         pricePerHour={booking.bike?.pricePerHour || 0}
+        pricePerDay={booking.bike?.pricePerDay || 0}
       />
     <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
       <div className="md:flex">
