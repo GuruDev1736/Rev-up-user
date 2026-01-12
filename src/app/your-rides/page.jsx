@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import fallbackImage from "@/app/images/house.jpg";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
+import { createRazorpayOrder } from "@/api/razorpay";
 
 // Cancel Booking Dialog Component
 const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
@@ -586,10 +587,23 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
 
   const handleExtendBooking = async (extensionData) => {
     try {
-      // Initiate Razorpay payment
+      // Create Razorpay order first
+      const orderResponse = await createRazorpayOrder({
+        bikeId: booking.bike?.id,
+        userId: user?.userId,
+        amount: Math.round(extensionData.price).toString(),
+        receipt: "None"
+      });
+
+      if (!orderResponse.success) {
+        throw new Error("Failed to create payment order");
+      }
+
+      // Initiate Razorpay payment with order ID
       await initiateRazorpayPayment({
         amount: extensionData.price,
         description: `Extend booking #${booking.id} by ${extensionData.extendBy === "hour" ? extensionData.hours + " hour(s)" : extensionData.days + " day(s)"}`,
+        orderId: orderResponse.orderId,
         prefill: {
           name: user?.firstName + " " + user?.lastName,
           email: user?.email,

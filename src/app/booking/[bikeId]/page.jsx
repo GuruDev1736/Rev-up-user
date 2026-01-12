@@ -8,6 +8,7 @@ import { createBooking, checkActiveBooking } from "@/api/bookings";
 import { getBikeById } from "@/api/bikes";
 import { applyCoupon, submitCouponUsage } from "@/api/coupons";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
+import { createRazorpayOrder } from "@/api/razorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
@@ -597,9 +598,28 @@ export default function BookingPage() {
 
       const { finalCost } = calculateBooking();
 
+      // Create Razorpay order first
+      setUploadProgress("Creating payment order...");
+      setLoading(true);
+      
+      const orderResponse = await createRazorpayOrder({
+        bikeId: bike.id,
+        userId: user.userId,
+        amount: Math.round(finalCost).toString(),
+        receipt: "None"
+      });
+
+      if (!orderResponse.success) {
+        throw new Error("Failed to create payment order");
+      }
+
+      setUploadProgress("Processing payment...");
+      setLoading(false);
+
       await initiateRazorpayPayment({
         amount: finalCost,
         description: `Bike Rental: ${bike.bikeName}${appliedCoupon ? ` (Coupon: ${appliedCoupon.code})` : ''}`,
+        orderId: orderResponse.orderId,
         prefill: {
           name: user.fullName || user.email,
           email: user.email,
