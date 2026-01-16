@@ -26,3 +26,5 @@ export const uploadProfilePicture = async (fileData) => {
     throw error;
   }
 };
+
+
