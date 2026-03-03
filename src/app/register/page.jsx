@@ -19,7 +19,56 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  const router = useRouter(); // ✅ initialize router
+  // Real-time field errors
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[6-9]\d{9}$/;
+
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return null;
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    if (score <= 1) return { label: "Weak", color: "bg-red-500", width: "w-1/4" };
+    if (score === 2) return { label: "Fair", color: "bg-yellow-400", width: "w-2/4" };
+    if (score === 3) return { label: "Good", color: "bg-blue-500", width: "w-3/4" };
+    return { label: "Strong", color: "bg-green-500", width: "w-full" };
+  };
+
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    if (val && !emailRegex.test(val)) setEmailError("Enter a valid email address");
+    else setEmailError("");
+  };
+
+  const handlePhoneChange = (val) => {
+    const numeric = val.replace(/\D/g, "");
+    setPhoneNo(numeric);
+    if (numeric && !phoneRegex.test(numeric)) setPhoneError("Enter a valid 10-digit Indian mobile number");
+    else setPhoneError("");
+  };
+
+  const handlePasswordChange = (val) => {
+    setPassword(val);
+    if (val && val.length < 8) setPasswordError("Password must be at least 8 characters");
+    else setPasswordError("");
+    if (confirmPassword && val !== confirmPassword) setConfirmPasswordError("Passwords do not match");
+    else if (confirmPassword) setConfirmPasswordError("");
+  };
+
+  const handleConfirmPasswordChange = (val) => {
+    setConfirmPassword(val);
+    if (val && val !== password) setConfirmPasswordError("Passwords do not match");
+    else setConfirmPasswordError("");
+  };
+
+  const router = useRouter();
   const { login } = useAuth();
 
   const handleRegister = async (e) => {
@@ -72,8 +121,20 @@ export default function Register() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    if (!emailRegex.test(email)) {
+      setEmailError("Enter a valid email address");
+      return;
+    }
+    if (!phoneRegex.test(phoneNumber)) {
+      setPhoneError("Enter a valid 10-digit Indian mobile number");
+      return;
+    }
+    if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return;
+    }
     if (confirmPassword !== password) {
-      setErrorMsg("Passwords do not match");
+      setConfirmPasswordError("Passwords do not match");
       return;
     }
 
@@ -82,7 +143,7 @@ export default function Register() {
 
   return (
     <AuthGuard requireGuest={true}>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-16 md:py-20">
+      <div className="min-h-[calc(100vh-90px)] mt-[90px] flex items-center justify-center bg-gray-50 px-4 py-6">
         <div className="bg-white shadow-2xl rounded-3xl w-full max-w-2xl mx-auto my-8 p-6 md:p-10 border-t-4" style={{ borderTopColor: '#f51717' }}>
         {/* Heading */}
         <h2 className="text-3xl md:text-4xl font-bold text-center mb-2" style={{ color: '#f51717' }}>
@@ -106,7 +167,7 @@ export default function Register() {
               <input
                 type="text"
                 id="firstName"
-                value={firstName}
+                value={firstName ?? ""}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="John"
                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors"
@@ -124,7 +185,7 @@ export default function Register() {
               <input
                 type="text"
                 id="lastName"
-                value={lastName}
+                value={lastName ?? ""}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Doe"
                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors"
@@ -141,12 +202,15 @@ export default function Register() {
             <input
               type="email"
               id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={email ?? ""}
+              onChange={(e) => handleEmailChange(e.target.value)}
               placeholder="you@example.com"
-              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors"
+              className={`w-full border-2 rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+                emailError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+              }`}
               required
             />
+            {emailError && <p className="text-red-500 text-xs mt-1">{emailError}</p>}
           </div>
 
           {/* Mobile */}
@@ -157,12 +221,17 @@ export default function Register() {
             <input
               type="tel"
               id="mobile"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNo(e.target.value)}
-              placeholder="+91 9876543210"
-              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors"
+              value={phoneNumber ?? ""}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              placeholder="xxxxxxxxxx"
+              autoComplete="off"
+              maxLength={10}
+              className={`w-full border-2 rounded-xl px-4 py-3 focus:outline-none transition-colors ${
+                phoneError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+              }`}
               required
             />
+            {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
           </div>
 
           {/* Password */}
@@ -177,10 +246,12 @@ export default function Register() {
               <input
                 type={showPassword ? "text" : "password"}
                 id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={password ?? ""}
+                onChange={(e) => handlePasswordChange(e.target.value)}
                 placeholder="••••••••"
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:border-red-500 transition-colors"
+                className={`w-full border-2 rounded-xl px-4 py-3 pr-12 focus:outline-none transition-colors ${
+                  passwordError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+                }`}
                 required
               />
               <button
@@ -202,6 +273,22 @@ export default function Register() {
                 )}
               </button>
             </div>
+            {password && (() => {
+              const strength = getPasswordStrength(password);
+              return (
+                <div className="mt-2">
+                  <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-300 ${strength.color} ${strength.width}`} />
+                  </div>
+                  <p className={`text-xs mt-1 font-medium ${
+                    strength.label === "Weak" ? "text-red-500" :
+                    strength.label === "Fair" ? "text-yellow-500" :
+                    strength.label === "Good" ? "text-blue-500" : "text-green-500"
+                  }`}>Password strength: {strength.label}</p>
+                </div>
+              );
+            })()}
+            {passwordError && <p className="text-red-500 text-xs mt-1">{passwordError}</p>}
           </div>
 
           {/* Confirm Password */}
@@ -216,10 +303,12 @@ export default function Register() {
               <input
                 type={showConfirmPassword ? "text" : "password"}
                 id="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                value={confirmPassword ?? ""}
+                onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                 placeholder="••••••••"
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:border-red-500 transition-colors"
+                className={`w-full border-2 rounded-xl px-4 py-3 pr-12 focus:outline-none transition-colors ${
+                  confirmPasswordError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+                }`}
                 required
               />
               <button
@@ -241,6 +330,8 @@ export default function Register() {
                 )}
               </button>
             </div>
+            {confirmPasswordError && <p className="text-red-500 text-xs mt-1">{confirmPasswordError}</p>}
+            {confirmPassword && !confirmPasswordError && <p className="text-green-500 text-xs mt-1">Passwords match ✓</p>}
           </div>
 
           {/* Terms */}

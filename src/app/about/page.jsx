@@ -6,8 +6,8 @@ import journey from "@/app/images/5.webp";
 export default function About() {
   return (
     <div>
-      <header className="w-full bg-[#f3e8e8] min-h-screen">
-        <Container className="w-full flex flex-col min-h-screen justify-center font-bold items-center px-4">
+      <header className="w-full bg-[#f3e8e8] min-h-screen pt-[90px]">
+        <Container className="w-full flex flex-col min-h-[calc(100vh-90px)] justify-center font-bold items-center px-4">
           {/* First Row */}
           <div className="mb-8 flex flex-col sm:flex-row mx-auto gap-4 text-center">
             <h2 className="border-1 px-6 sm:px-12 py-10 text-3xl sm:text-5xl md:text-[70px] rounded-full">

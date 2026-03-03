@@ -63,9 +63,9 @@ ${formData.message}
   };
 
   return (
-    <div className="pt-20">
-      <header className="bg-[#f3e8e8] w-full min-h-screen py-16">
-        <Container className="flex flex-col lg:flex-row min-h-screen items-center gap-10">
+    <div className="pt-[90px]">
+      <header className="bg-[#f3e8e8] w-full min-h-[calc(100vh-90px)] py-12 sm:py-16">
+        <Container className="flex flex-col lg:flex-row min-h-[calc(100vh-90px)] items-center gap-10">
           {/* Contact Info Section */}
           <div className="w-full lg:w-1/2">
             <h1 className="font-bold text-3xl md:text-4xl lg:text-5xl mb-6">CONTACT US</h1>

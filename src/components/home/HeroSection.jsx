@@ -142,7 +142,7 @@ export default function HeroSection() {
       {isAuthenticated && (
         <section className="bg-white w-full flex flex-col justify-center px-4 py-16">
           <div className="text-center mb-12">
-            <h2 className="font-semibold text-3xl sm:text-4xl text-[45px] mb-4">
+            <h2 className="font-semibold text-3xl sm:text-4xl md:text-5xl mb-4">
               Explore Our Locations
             </h2>
             <p className="text-gray-600 text-lg">
@@ -158,7 +158,7 @@ export default function HeroSection() {
 
       <div className="bg-[#fbfbfb] min-h-[70vh] w-full flex flex-col justify-center px-4 py-16">
         <div className="text-center mb-12">
-          <h2 className="font-semibold text-3xl sm:text-4xl text-[45px]">
+          <h2 className="font-semibold text-3xl sm:text-4xl md:text-5xl">
             Find your ride
           </h2>
           <p className="text-gray-600 text-lg mt-2">
@@ -184,7 +184,7 @@ export default function HeroSection() {
 
       {/* Idle Vehicle Section */}
       <div className="bg-[#ffff] min-h-[80vh] w-full flex flex-col justify-center items-center px-4 py-16">
-        <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-10 justify-center">
+          <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-10 justify-center px-4">
           {/* Left: Image */}
           <div className="w-full lg:w-1/2 flex justify-center">
             <Image
@@ -197,8 +197,8 @@ export default function HeroSection() {
           </div>
 
           {/* Right: Text Content */}
-          <div className="w-full lg:w-1/2 px-[40px] flex flex-col gap-4 text-left">
-            <h3 className="font-semibold text-3xl sm:text-4xl md:text-[65px] leading-snug">
+          <div className="w-full lg:w-1/2 px-4 sm:px-8 lg:px-10 flex flex-col gap-4 text-left">
+            <h3 className="font-semibold text-3xl sm:text-4xl md:text-5xl lg:text-[65px] leading-snug">
               Have an idle vehicle?
             </h3>
             <p className="text-gray-600 font-extralight text-lg sm:text-xl md:text-[18px]">
@@ -289,7 +289,8 @@ export default function HeroSection() {
           {/* Heading */}
           <div className="w-full max-w-7xl px-6 md:px-0 flex flex-col md:flex-row items-start md:items-start gap-10 md:gap-20 lg:gap-32">
             <div className="flex-1 text-left">
-              <h2 className="text-3xl sm:text-4xl md:text-6xl font-semibold leading-snug mb-6">
+              <h2
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold leading-snug mb-6">
                 Real People
                 <br />
                 Real Talk

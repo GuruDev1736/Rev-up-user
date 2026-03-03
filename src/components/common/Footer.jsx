@@ -13,10 +13,10 @@ import {
 export default function Footer() {
   return (
     <footer className={`${styles.footer} text-white`}>
-      <Container className="m-[40px]">
+      <Container className="py-10">
         {/* Heading */}
         <div
-          className={`${styles.border} p-2 rounded-2xl font-light text-[50px] md:text-[90px] mb-8`}
+          className={`${styles.border} p-2 rounded-2xl font-light text-4xl sm:text-5xl md:text-[70px] lg:text-[90px] mb-8`}
         >
           Let&apos;s Talk<b>.</b>
           <hr className="text-[#525252]" />

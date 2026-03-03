@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation"; // ✅ import router
 import { loginUser, sendForgotPasswordOTP, verifyForgotPasswordOTP, resetPassword } from "@/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,9 +19,69 @@ export default function Login() {
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordError, setForgotPasswordError] = useState(null);
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(null);
+
+  // Real-time password validation for reset
+  const [newPasswordError, setNewPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+
+  // OTP resend timer (300 seconds = 5 min)
+  const [resendTimer, setResendTimer] = useState(0);
+  const timerRef = useRef(null);
+
+  const startResendTimer = () => {
+    setResendTimer(300);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const formatTimer = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
+    const s = (secs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  // Clear timer when component unmounts
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return null;
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    if (score <= 1) return { label: "Weak", color: "bg-red-500", width: "w-1/4" };
+    if (score === 2) return { label: "Fair", color: "bg-yellow-400", width: "w-2/4" };
+    if (score === 3) return { label: "Good", color: "bg-blue-500", width: "w-3/4" };
+    return { label: "Strong", color: "bg-green-500", width: "w-full" };
+  };
+
+  const handleNewPasswordChange = (val) => {
+    setNewPassword(val);
+    if (val && val.length < 8) setNewPasswordError("Password must be at least 8 characters");
+    else setNewPasswordError("");
+    if (confirmPassword && val !== confirmPassword) setConfirmPasswordError("Passwords do not match");
+    else if (confirmPassword) setConfirmPasswordError("");
+  };
+
+  const handleConfirmPasswordChange = (val) => {
+    setConfirmPassword(val);
+    if (val && val !== newPassword) setConfirmPasswordError("Passwords do not match");
+    else setConfirmPasswordError("");
+  };
 
   const router = useRouter(); // ✅ initialize router
   const { login } = useAuth();
@@ -77,6 +137,7 @@ export default function Login() {
       if (response.STS === "200") {
         setForgotPasswordSuccess("OTP sent to your email successfully!");
         setForgotPasswordStep(2);
+        startResendTimer();
       } else {
         setForgotPasswordError(response.MSG || "Failed to send OTP. Please try again.");
       }
@@ -113,26 +174,22 @@ export default function Login() {
   // Forgot Password - Step 3: Reset Password
   const handleResetPassword = async (e) => {
     e.preventDefault();
+
+    if (newPassword.length < 8) {
+      setNewPasswordError("Password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setConfirmPasswordError("Passwords do not match");
+      return;
+    }
+
     setForgotPasswordLoading(true);
     setForgotPasswordError(null);
     setForgotPasswordSuccess(null);
 
-    // Validate passwords match
-    if (newPassword !== confirmPassword) {
-      setForgotPasswordError("Passwords do not match");
-      setForgotPasswordLoading(false);
-      return;
-    }
-
-    // Validate password strength
-    if (newPassword.length < 6) {
-      setForgotPasswordError("Password must be at least 6 characters long");
-      setForgotPasswordLoading(false);
-      return;
-    }
-
     try {
-      const response = await resetPassword(forgotEmail, otp, newPassword);
+      const response = await resetPassword(forgotEmail, newPassword);
       
       if (response.STS === "200") {
         setForgotPasswordSuccess("Password reset successful! Redirecting to login...");
@@ -164,11 +221,15 @@ export default function Login() {
     setConfirmPassword("");
     setForgotPasswordError(null);
     setForgotPasswordSuccess(null);
+    setNewPasswordError("");
+    setConfirmPasswordError("");
+    setResendTimer(0);
+    if (timerRef.current) clearInterval(timerRef.current);
   };
 
   return (
     <AuthGuard requireGuest={true}>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-8">
+      <div className="min-h-[calc(100vh-90px)] mt-[90px] flex items-center justify-center bg-gray-50 px-4 py-6">
         <div className="bg-white shadow-2xl rounded-3xl w-full max-w-md p-8 md:p-10 border-t-4" style={{ borderTopColor: '#f51717' }}>
           {/* Heading */}
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-2" style={{ color: '#f51717' }}>
@@ -399,10 +460,17 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={handleSendOTP}
-                  className="text-sm font-medium hover:underline text-center transition-all"
-                  style={{ color: '#f51717' }}
+                  disabled={resendTimer > 0 || forgotPasswordLoading}
+                  className={`text-sm font-medium text-center transition-all ${
+                    resendTimer > 0
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "hover:underline"
+                  }`}
+                  style={resendTimer === 0 ? { color: '#f51717' } : {}}
                 >
-                  Didn't receive the code? Resend
+                  {resendTimer > 0
+                    ? `Resend OTP in ${formatTimer(resendTimer)}`
+                    : "Didn't receive the code? Resend"}
                 </button>
               </form>
             )}
@@ -412,37 +480,95 @@ export default function Login() {
               <form onSubmit={handleResetPassword} className="flex flex-col gap-5">
                 <div className="bg-red-50 border-l-4 p-4 rounded-r-lg" style={{ borderLeftColor: '#f51717' }}>
                   <p className="text-gray-700 text-sm leading-relaxed">
-                    Create a strong password with at least 6 characters.
+                    Create a strong password with at least 8 characters.
                   </p>
                 </div>
                 <div>
                   <label htmlFor="newPassword" className="block text-sm font-semibold text-gray-700 mb-2">
                     New Password
                   </label>
-                  <input
-                    type="password"
-                    id="newPassword"
-                    placeholder="Enter new password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      id="newPassword"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(e) => handleNewPasswordChange(e.target.value)}
+                      className={`w-full border-2 rounded-xl px-4 py-3 pr-12 focus:outline-none transition-colors ${
+                        newPasswordError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+                      }`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+                    >
+                      {showNewPassword ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  {newPassword && (() => {
+                    const strength = getPasswordStrength(newPassword);
+                    return (
+                      <div className="mt-2">
+                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-300 ${strength.color} ${strength.width}`} />
+                        </div>
+                        <p className={`text-xs mt-1 font-medium ${
+                          strength.label === "Weak" ? "text-red-500" :
+                          strength.label === "Fair" ? "text-yellow-500" :
+                          strength.label === "Good" ? "text-blue-500" : "text-green-500"
+                        }`}>Password strength: {strength.label}</p>
+                      </div>
+                    );
+                  })()}
+                  {newPasswordError && <p className="text-red-500 text-xs mt-1">{newPasswordError}</p>}
                 </div>
 
                 <div>
                   <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
                     Confirm New Password
                   </label>
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    placeholder="Confirm new password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-red-500 transition-colors"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmNewPassword ? "text" : "password"}
+                      id="confirmPassword"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+                      className={`w-full border-2 rounded-xl px-4 py-3 pr-12 focus:outline-none transition-colors ${
+                        confirmPasswordError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+                      }`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+                    >
+                      {showConfirmNewPassword ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  {confirmPasswordError && <p className="text-red-500 text-xs mt-1">{confirmPasswordError}</p>}
+                  {confirmPassword && !confirmPasswordError && <p className="text-green-500 text-xs mt-1">Passwords match ✓</p>}
                 </div>
 
                 {forgotPasswordError && (

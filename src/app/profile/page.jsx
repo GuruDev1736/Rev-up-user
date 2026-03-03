@@ -31,6 +31,26 @@ export default function Profile() {
   const [editProfileSuccess, setEditProfileSuccess] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
+  // Real-time field errors for edit profile
+  const [editEmailError, setEditEmailError] = useState("");
+  const [editPhoneError, setEditPhoneError] = useState("");
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[6-9]\d{9}$/;
+
+  const handleEditEmailChange = (val) => {
+    setEditEmail(val);
+    if (val && !emailRegex.test(val)) setEditEmailError("Enter a valid email address");
+    else setEditEmailError("");
+  };
+
+  const handleEditPhoneChange = (val) => {
+    const numeric = val.replace(/\D/g, "");
+    setEditPhoneNumber(numeric);
+    if (numeric && !phoneRegex.test(numeric)) setEditPhoneError("Enter a valid 10-digit Indian mobile number");
+    else setEditPhoneError("");
+  };
+
   // Change Password Modal States
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -105,6 +125,8 @@ export default function Profile() {
     setImagePreview(null);
     setEditProfileError(null);
     setEditProfileSuccess(null);
+    setEditEmailError("");
+    setEditPhoneError("");
   };
 
   const handleImageSelect = (e) => {
@@ -135,6 +157,16 @@ export default function Profile() {
 
   const handleEditProfile = async (e) => {
     e.preventDefault();
+
+    if (!emailRegex.test(editEmail)) {
+      setEditEmailError("Enter a valid email address");
+      return;
+    }
+    if (!phoneRegex.test(editPhoneNumber)) {
+      setEditPhoneError("Enter a valid 10-digit Indian mobile number");
+      return;
+    }
+
     setEditProfileLoading(true);
     setEditProfileError(null);
     setEditProfileSuccess(null);
@@ -498,12 +530,15 @@ export default function Profile() {
                 <input
                   type="email"
                   value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none transition-colors"
+                  onChange={(e) => handleEditEmailChange(e.target.value)}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                    editEmailError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+                  }`}
                   placeholder="Enter email address"
                   required
                   disabled={editProfileLoading}
                 />
+                {editEmailError && <p className="text-red-500 text-xs mt-1">{editEmailError}</p>}
               </div>
 
               {/* Phone Number */}
@@ -514,12 +549,16 @@ export default function Profile() {
                 <input
                   type="tel"
                   value={editPhoneNumber}
-                  onChange={(e) => setEditPhoneNumber(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none transition-colors"
+                  onChange={(e) => handleEditPhoneChange(e.target.value)}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                    editPhoneError ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-red-500"
+                  }`}
                   placeholder="Enter phone number"
+                  maxLength={10}
                   required
                   disabled={editProfileLoading}
                 />
+                {editPhoneError && <p className="text-red-500 text-xs mt-1">{editPhoneError}</p>}
               </div>
 
               {/* Buttons */}
