@@ -8,6 +8,7 @@ import Image from "next/image";
 import fallbackImage from "@/app/images/house.jpg";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { createRazorpayOrder } from "@/api/razorpay";
+import { extendBikeService } from "@/api/extendBikeService";
 
 // Cancel Booking Dialog Component
 const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
@@ -201,6 +202,19 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
+  const formatDateTimeForExtensionApi = (date) => {
+    if (!date) return "";
+
+    return date.toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).replace(",", " at");
   };
 
   const handleConfirm = async () => {
@@ -560,6 +574,19 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
     return `${year}-${month}-${day} ${hours}:${minutes}`;
   };
 
+  const formatDateTimeForExtensionApi = (date) => {
+    if (!date) return "";
+
+    return date.toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).replace(",", " at");
+  };
+
   const calculateDuration = () => {
     const diff = endDate - startDate;
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -587,6 +614,16 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
 
   const handleExtendBooking = async (extensionData) => {
     try {
+      const currentEndDate = new Date(booking.endDateTime);
+      const newEndDate = extensionData.newEndDate;
+      const extensionType = extensionData.extendBy === "hour" ? "HOUR" : "DAY";
+      const extendDuration = extensionData.extendBy === "hour"
+        ? String(extensionData.hours)
+        : String(extensionData.days);
+      const pricePerDuration = extensionData.extendBy === "hour"
+        ? String(booking.bike?.pricePerHour || 0)
+        : String(booking.bike?.pricePerDay || 0);
+
       // Create Razorpay order first
       const orderResponse = await createRazorpayOrder({
         bikeId: booking.bike?.id,
@@ -611,20 +648,30 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
         },
         onSuccess: async (paymentResponse) => {
           try {
+            const extensionResult = await extendBikeService({
+              bookingId: booking.id,
+              currentDateTime: formatDateTimeForExtensionApi(currentEndDate),
+              newDateTime: formatDateTimeForExtensionApi(newEndDate),
+              extendDuration,
+              pricePerDuration,
+              totalPrice: Number(extensionData.price).toFixed(2),
+              extensionType,
+            });
+
             // Format new end date for API
             const formattedEndDate = formatDateForAPI(extensionData.newEndDate);
             
             // Call API to update booking end date
-            const result = await extendBookingEndDate(booking.id, formattedEndDate);
+            await extendBookingEndDate(booking.id, formattedEndDate);
             
-            alert(`Booking extended successfully! Payment ID: ${paymentResponse.razorpay_payment_id}`);
+            alert(`${extensionResult.message || "Booking extended successfully!"} Payment ID: ${paymentResponse.razorpay_payment_id}`);
             
             // Refresh bookings after extension
             if (onBookingCancelled) {
               onBookingCancelled();
             }
           } catch (apiError) {
-            console.error("Error updating booking:", apiError);
+            console.error("Error processing booking extension:", apiError);
             alert("Payment successful but failed to update booking. Please contact support with Payment ID: " + paymentResponse.razorpay_payment_id);
           }
         },
