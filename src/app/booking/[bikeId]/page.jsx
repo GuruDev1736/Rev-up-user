@@ -9,6 +9,7 @@ import { getBikeById } from "@/api/bikes";
 import { applyCoupon, submitCouponUsage } from "@/api/coupons";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { createRazorpayOrder } from "@/api/razorpay";
+import { checkAndCompressDocument } from "@/lib/documentUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
@@ -31,6 +32,64 @@ const getSafeImageSrc = (src) => {
   // For relative paths without leading slash (like "img1.jpg"), return null
   console.warn('Invalid bike image path:', trimmedSrc);
   return null;
+};
+
+const PaymentTermsModal = ({ isOpen, onClose, onAccept }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Payment Terms & Conditions</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Please review and accept these terms to continue to the payment gateway.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4 text-sm text-gray-700">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">Important Payment Conditions</h3>
+            <ul className="list-disc list-inside space-y-2">
+              <li>ID physical deposit must be submitted at pickup.</li>
+              <li>Bike physical damage and tire punctures are your responsibility.</li>
+              <li>Bike challan and traffic fines are your responsibility.</li>
+              <li>If your details mismatch, the ride may be canceled.</li>
+              <li>Bank and payment gateway taxes will be deducted.</li>
+            </ul>
+          </div>
+          <p className="text-sm text-gray-500">
+            After accepting, you will be redirected to the payment gateway to complete your booking.
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onAccept}
+            className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 transition"
+          >
+            Accept & Continue to Payment
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function BookingPage() {
@@ -67,6 +126,8 @@ export default function BookingPage() {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
   const [checkingBooking, setCheckingBooking] = useState(true);
+  const [showPaymentTerms, setShowPaymentTerms] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState(null);
 
   // Check for active bookings (skip if coming from approved request)
   useEffect(() => {
@@ -261,7 +322,13 @@ export default function BookingPage() {
   };
 
   const handleToDateChange = (e) => {
-    const selectedDate = e.target.value;
+    let selectedDate = e.target.value;
+    const minDate = getMinToDate();
+
+    if (pricingPeriod !== "day" && selectedDate < minDate) {
+      selectedDate = minDate;
+    }
+
     setToDate(selectedDate);
 
     if (selectedDate === fromDate && toTime && fromTime && toTime <= fromTime) {
@@ -494,30 +561,27 @@ export default function BookingPage() {
       const endDateTime = formatForAPI(toDate, toTime);
 
       setUploadProgress("Uploading Aadhar Card...");
-      const aadharUpload = await uploadDocument(aadharCard, user.userId);
+      const compressedAadhar = await checkAndCompressDocument(aadharCard);
+      const aadharUpload = await uploadDocument(compressedAadhar, user.userId);
 
       if (!aadharUpload.success) {
         throw new Error("Failed to upload Aadhar Card");
       }
 
       setUploadProgress("Uploading Driving License...");
-      const licenseUpload = await uploadDocument(drivingLicense, user.userId);
+      const compressedLicense = await checkAndCompressDocument(drivingLicense);
+      const licenseUpload = await uploadDocument(compressedLicense, user.userId);
 
       if (!licenseUpload.success) {
         throw new Error("Failed to upload Driving License");
       }
-
-      setUploadProgress("Processing payment...");
-      setLoading(false);
 
       const { finalCost } = calculateBooking();
       const shouldCreateOrder = process.env.NODE_ENV === "production";
       let razorpayOrderId;
 
       if (shouldCreateOrder) {
-        // Orders API is required in production flow.
         setUploadProgress("Creating payment order...");
-        setLoading(true);
 
         const orderResponse = await createRazorpayOrder({
           bikeId: bike.id,
@@ -533,10 +597,23 @@ export default function BookingPage() {
         razorpayOrderId = orderResponse.orderId;
       }
 
-      setUploadProgress("Processing payment...");
-      setLoading(false);
+      const bookingData = {
+        userId: user.userId,
+        bikeId: bike.id,
+        startDateTime: startDateTime,
+        endDateTime: endDateTime,
+        totalAmount: finalCost,
+        aadharcardUrl: aadharUpload.url,
+        drivingLicenseUrl: licenseUpload.url,
+        presentAddress: currentAddress,
+        permanentAddress: permanentAddress,
+        alternateContactNumber: alternateMobile,
+        rentalPeriodType: pricingPeriod.toUpperCase(), // DAY, WEEK, or MONTH
+        quantity: 1, // User can only book one bike at a time
+        couponCode: appliedCoupon?.code || null,
+      };
 
-      await initiateRazorpayPayment({
+      setPendingPayment({
         amount: finalCost,
         description: `Bike Rental: ${bike.bikeName}${appliedCoupon ? ` (Coupon: ${appliedCoupon.code})` : ''}`,
         orderId: razorpayOrderId,
@@ -545,26 +622,44 @@ export default function BookingPage() {
           email: user.email,
           contact: user.phoneNumber || "",
         },
+        bookingData,
+      });
+
+      setUploadProgress("Please accept the payment terms to continue");
+      setLoading(false);
+      setShowPaymentTerms(true);
+    } catch (error) {
+      console.error("Booking error:", error);
+      resetBookingForm();
+      alert(`Error: ${error.message}\n\nPlease try again.`);
+      setLoading(false);
+      setUploadProgress("");
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!pendingPayment) {
+      return;
+    }
+
+    setShowPaymentTerms(false);
+    setLoading(true);
+    setUploadProgress("Processing payment...");
+
+    try {
+      await initiateRazorpayPayment({
+        amount: pendingPayment.amount,
+        description: pendingPayment.description,
+        orderId: pendingPayment.orderId,
+        prefill: pendingPayment.prefill,
         onSuccess: async (paymentResponse) => {
           setLoading(true);
           setUploadProgress("Creating booking...");
 
           try {
             const bookingData = {
-              userId: user.userId,
-              bikeId: bike.id,
-              startDateTime: startDateTime,
-              endDateTime: endDateTime,
+              ...pendingPayment.bookingData,
               paymentId: paymentResponse.razorpay_payment_id,
-              totalAmount: finalCost,
-              aadharcardUrl: aadharUpload.url,
-              drivingLicenseUrl: licenseUpload.url,
-              presentAddress: currentAddress,
-              permanentAddress: permanentAddress,
-              alternateContactNumber: alternateMobile,
-              rentalPeriodType: pricingPeriod.toUpperCase(), // DAY, WEEK, or MONTH
-              quantity: 1, // User can only book one bike at a time
-              couponCode: appliedCoupon?.code || null,
             };
 
             console.log("Creating booking with data:", bookingData);
@@ -572,20 +667,19 @@ export default function BookingPage() {
             const bookingResponse = await createBooking(bookingData);
 
             if (bookingResponse.success && bookingResponse.booking) {
-              // Submit coupon usage if coupon was applied
               if (appliedCoupon?.code) {
                 try {
                   await submitCouponUsage(appliedCoupon.code);
                   console.log("Coupon usage recorded successfully");
                 } catch (error) {
                   console.error("Failed to record coupon usage:", error);
-                  // Don't fail the booking if coupon submission fails
                 }
               }
-              
+
               setBookingResult(bookingResponse.booking);
               setShowInvoice(true);
               resetBookingForm();
+              setPendingPayment(null);
             } else {
               throw new Error(bookingResponse.message || "Booking failed");
             }
@@ -601,16 +695,14 @@ export default function BookingPage() {
         },
         onFailure: (error) => {
           console.error("Payment failed:", error);
-          resetBookingForm();
           alert("Payment was cancelled or failed. Please try again.");
           setLoading(false);
           setUploadProgress("");
         },
       });
     } catch (error) {
-      console.error("Booking error:", error);
-      resetBookingForm();
-      alert(`Error: ${error.message}\n\nPlease try again.`);
+      console.error("Payment initiation error:", error);
+      alert("Unable to open payment gateway. Please try again.");
       setLoading(false);
       setUploadProgress("");
     }
@@ -635,6 +727,20 @@ export default function BookingPage() {
     return undefined;
   };
 
+  const getMinToDate = () => {
+    if (!fromDate) {
+      return today;
+    }
+
+    const minDate = new Date(fromDate);
+    if (pricingPeriod === "week") {
+      minDate.setDate(minDate.getDate() + 7);
+    } else if (pricingPeriod === "month") {
+      minDate.setDate(minDate.getDate() + 30);
+    }
+    return minDate.toISOString().split("T")[0];
+  };
+
   const getMinToTime = () => {
     if (isToDateSameAsFrom && fromTime) {
       const [hours, minutes] = fromTime.split(":");
@@ -649,8 +755,14 @@ export default function BookingPage() {
   };
 
   return (
-    <Container className="min-h-screen py-8 px-4 md:px-8 lg:px-16 mt-24">
-      <div className="max-w-6xl mx-auto">
+    <>
+      <PaymentTermsModal
+        isOpen={showPaymentTerms}
+        onClose={() => setShowPaymentTerms(false)}
+        onAccept={handleConfirmPayment}
+      />
+      <Container className="min-h-screen py-8 px-4 md:px-8 lg:px-16 mt-24">
+        <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -849,7 +961,7 @@ export default function BookingPage() {
                     <span className="text-red-600">🕐</span>
                     To
                     {pricingPeriod !== "day" && (
-                      <span className="text-xs text-gray-500 font-normal">(Auto-calculated)</span>
+                      <span className="text-xs text-gray-500 font-normal">(Initial end date auto-calculated)</span>
                     )}
                   </label>
                   <div className="space-y-2">
@@ -857,28 +969,20 @@ export default function BookingPage() {
                       type="date"
                       value={toDate}
                       onChange={handleToDateChange}
-                      min={fromDate || today}
-                      readOnly={pricingPeriod !== "day"}
-                      disabled={pricingPeriod !== "day"}
-                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all ${
-                        pricingPeriod !== "day" ? "bg-gray-100 cursor-not-allowed" : "bg-white"
-                      }`}
+                      min={getMinToDate()}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
                     />
                     <input
                       type="time"
                       value={toTime}
                       onChange={handleToTimeChange}
                       min={getMinToTime()}
-                      readOnly={pricingPeriod !== "day"}
-                      disabled={pricingPeriod !== "day"}
-                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all ${
-                        pricingPeriod !== "day" ? "bg-gray-100 cursor-not-allowed" : "bg-white"
-                      }`}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
                     />
                     {pricingPeriod !== "day" && fromDate && fromTime && (
                       <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                         <span>ℹ️</span>
-                        <span>Automatically set to {pricingPeriod === "week" ? "7 days" : "30 days"} from start date</span>
+                        <span>Initial end date is set to {pricingPeriod === "week" ? "7 days" : "30 days"}, you can extend it further within the same package.</span>
                       </p>
                     )}
                     {isToDateSameAsFrom && fromTime && pricingPeriod === "day" && (
@@ -1452,5 +1556,6 @@ export default function BookingPage() {
         }}
       />
     </Container>
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { uploadDocument } from "@/api/upload";
 import { createBooking } from "@/api/bookings";
 import { applyCoupon } from "@/api/coupons";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
+import { checkAndCompressDocument } from "@/lib/documentUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import InvoiceModal from "./InvoiceModal";
 
@@ -215,7 +216,8 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
       // Step 1: Upload Aadhar Card
       setUploadProgress("Uploading Aadhar Card...");
-      const aadharUpload = await uploadDocument(aadharCard, user.userId);
+      const compressedAadhar = await checkAndCompressDocument(aadharCard);
+      const aadharUpload = await uploadDocument(compressedAadhar, user.userId);
       
       if (!aadharUpload.success) {
         throw new Error("Failed to upload Aadhar Card");
@@ -223,7 +225,8 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
       // Step 2: Upload Driving License
       setUploadProgress("Uploading Driving License...");
-      const licenseUpload = await uploadDocument(drivingLicense, user.userId);
+      const compressedLicense = await checkAndCompressDocument(drivingLicense);
+      const licenseUpload = await uploadDocument(compressedLicense, user.userId);
       
       if (!licenseUpload.success) {
         throw new Error("Failed to upload Driving License");
