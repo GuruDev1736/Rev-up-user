@@ -134,7 +134,7 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
     try {
       // Call API to validate and get coupon details
-      const response = await applyCoupon(couponCode);
+      const response = await applyCoupon(couponCode, user.userId);
       
       if (response.success && response.coupon) {
         setAppliedCoupon(response.coupon);
