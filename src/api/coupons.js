@@ -8,7 +8,7 @@ import { apiGet, apiPut } from "@/lib/apiClient";
  */
 export const applyCoupon = async (couponCode, userId) => {
   try {
-    const response = await apiGet(`/api/coupons/apply/${couponCode}?userId=${userId}`);
+    const response = await apiGet(`/api/coupons/${couponCode}?userId=${userId}`);
 
     if (response && response.STS === "200" && response.CONTENT) {
       const coupon = response.CONTENT;
