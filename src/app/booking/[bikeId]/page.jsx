@@ -669,7 +669,7 @@ export default function BookingPage() {
             if (bookingResponse.success && bookingResponse.booking) {
               if (appliedCoupon?.code) {
                 try {
-                  await submitCouponUsage(appliedCoupon.code);
+                  await submitCouponUsage(appliedCoupon.code, user.userId);
                   console.log("Coupon usage recorded successfully");
                 } catch (error) {
                   console.error("Failed to record coupon usage:", error);
