@@ -133,13 +133,15 @@ const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
 };
 
 // Extend Time Dialog Component
-const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDate, pricePerHour, pricePerDay }) => {
-  const [extendOption, setExtendOption] = useState(""); // "hour" or "day"
+const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDate, pricePerHour, pricePerDay, pricePerWeek, pricePerMonth }) => {
+  const [extendOption, setExtendOption] = useState(""); // "hour" or "day" or "week" or "month"
   const [hours, setHours] = useState(1);
   const [days, setDays] = useState(1);
+  const [weeks, setWeeks] = useState(1);
+  const [months, setMonths] = useState(1);
   const [extending, setExtending] = useState(false);
 
-  // Calculate new end time based on hours
+  // Calculate new end time based on hours, days, weeks, or months
   const calculateNewEndTime = () => {
     if (!currentEndDate) return null;
     const endDate = new Date(currentEndDate);
@@ -147,8 +149,15 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
     if (extendOption === "hour" && hours > 0) {
       endDate.setHours(endDate.getHours() + hours);
       return endDate;
-    } else if (extendOption === "day") {
+    } else if (extendOption === "day" && days > 0) {
       endDate.setDate(endDate.getDate() + days);
+      return endDate;
+    } else if (extendOption === "week" && weeks > 0) {
+      endDate.setDate(endDate.getDate() + weeks * 7);
+      return endDate;
+    } else if (extendOption === "month" && months > 0) {
+      endDate.setMonth(endDate.getMonth() + months);
+      return endDate;
     }
     
     return endDate;
@@ -158,8 +167,12 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
   const calculateExtensionPrice = () => {
     if (extendOption === "hour" && hours > 0) {
       return hours * (pricePerHour || 0);
-    } else if (extendOption === "day") {
+    } else if (extendOption === "day" && days > 0) {
       return days * (pricePerDay || 0);
+    } else if (extendOption === "week" && weeks > 0) {
+      return weeks * (pricePerWeek || 0);
+    } else if (extendOption === "month" && months > 0) {
+      return months * (pricePerMonth || 0);
     }
     return 0;
   };
@@ -228,12 +241,29 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
       return;
     }
 
+    if (extendOption === "day" && days <= 0) {
+      alert("Please enter a valid number of days");
+      return;
+    }
+
+    if (extendOption === "week" && weeks <= 0) {
+      alert("Please enter a valid number of weeks");
+      return;
+    }
+
+    if (extendOption === "month" && months <= 0) {
+      alert("Please enter a valid number of months");
+      return;
+    }
+
     setExtending(true);
     try {
       const extensionData = {
         extendBy: extendOption,
         hours: extendOption === "hour" ? hours : null,
         days: extendOption === "day" ? days : null,
+        weeks: extendOption === "week" ? weeks : null,
+        months: extendOption === "month" ? months : null,
         price: calculateExtensionPrice(),
         newEndDate: calculateNewEndTime()
       };
@@ -251,6 +281,8 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
       setExtendOption("");
       setHours(1);
       setDays(1);
+      setWeeks(1);
+      setMonths(1);
       onClose();
     }
   };
@@ -469,10 +501,180 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
               </div>
             )}
           </div>
+
+          {/* Extend by Week */}
+          <div 
+            onClick={() => !extending && setExtendOption("week")}
+            className={`p-4 border-2 rounded-lg cursor-pointer transition ${
+              extendOption === "week" 
+                ? "border-red-500 bg-red-50" 
+                : "border-gray-200 hover:border-gray-300"
+            } ${extending ? "cursor-not-allowed opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="extendOption"
+                  value="week"
+                  checked={extendOption === "week"}
+                  onChange={() => setExtendOption("week")}
+                  disabled={extending}
+                  className="w-4 h-4 text-red-600 focus:ring-red-500"
+                />
+                <span className="font-semibold text-gray-900">Extend by Week</span>
+              </label>
+            </div>
+            {extendOption === "week" && (
+              <div className="mt-3 space-y-3">
+                {/* Current End Time Display */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Current End Time</p>
+                      <p className="text-sm font-bold text-amber-900">{formatEndTime()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Weeks Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Weeks to Extend:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={weeks}
+                    onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
+                    disabled={extending}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter 1-12 weeks</p>
+                </div>
+
+                {/* Updated End Time & Price Display */}
+                {weeks > 0 && (
+                  <div className="space-y-2">
+                    {/* New End Time */}
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs font-semibold text-green-800 mb-1">New End Time</p>
+                      <p className="text-sm font-bold text-green-900">
+                        {formatDateTime(calculateNewEndTime())}
+                      </p>
+                    </div>
+                    
+                    {/* Price Breakdown */}
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Extension Duration:</span>
+                        <span className="font-semibold text-gray-900">{weeks} week(s)</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Price per Week:</span>
+                        <span className="font-semibold text-gray-900">₹{(pricePerWeek || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                        <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
+                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Extend by Month */}
+          <div 
+            onClick={() => !extending && setExtendOption("month")}
+            className={`p-4 border-2 rounded-lg cursor-pointer transition ${
+              extendOption === "month" 
+                ? "border-red-500 bg-red-50" 
+                : "border-gray-200 hover:border-gray-300"
+            } ${extending ? "cursor-not-allowed opacity-50" : ""}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="extendOption"
+                  value="month"
+                  checked={extendOption === "month"}
+                  onChange={() => setExtendOption("month")}
+                  disabled={extending}
+                  className="w-4 h-4 text-red-600 focus:ring-red-500"
+                />
+                <span className="font-semibold text-gray-900">Extend by Month</span>
+              </label>
+            </div>
+            {extendOption === "month" && (
+              <div className="mt-3 space-y-3">
+                {/* Current End Time Display */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Current End Time</p>
+                      <p className="text-sm font-bold text-amber-900">{formatEndTime()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Months Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Months to Extend:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={months}
+                    onChange={(e) => setMonths(parseInt(e.target.value) || 1)}
+                    disabled={extending}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Enter 1-12 months</p>
+                </div>
+
+                {/* Updated End Time & Price Display */}
+                {months > 0 && (
+                  <div className="space-y-2">
+                    {/* New End Time */}
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs font-semibold text-green-800 mb-1">New End Time</p>
+                      <p className="text-sm font-bold text-green-900">
+                        {formatDateTime(calculateNewEndTime())}
+                      </p>
+                    </div>
+                    
+                    {/* Price Breakdown */}
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Extension Duration:</span>
+                        <span className="font-semibold text-gray-900">{months} month(s)</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <span className="text-gray-700">Price per Month:</span>
+                        <span className="font-semibold text-gray-900">₹{(pricePerMonth || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                        <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
+                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* New End Date Preview */}
-        {extendOption && (extendOption === "day" || hours > 0) && (
+        {extendOption && ((extendOption === "day" && days > 0) || (extendOption === "hour" && hours > 0) || (extendOption === "week" && weeks > 0) || (extendOption === "month" && months > 0)) && (
           <div className="mb-6 p-3 bg-gray-50 rounded-lg border border-gray-300">
             <p className="text-xs text-gray-500 mb-1">Final Return Date & Time:</p>
             <p className="text-sm font-semibold text-gray-900">
@@ -492,7 +694,7 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
           </button>
           <button
             onClick={handleConfirm}
-            disabled={extending || !extendOption || (extendOption === "hour" && hours <= 0)}
+            disabled={extending || !extendOption || (extendOption === "hour" && hours <= 0) || (extendOption === "day" && days <= 0) || (extendOption === "week" && weeks <= 0) || (extendOption === "month" && months <= 0)}
             className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {extending ? (
@@ -616,13 +818,27 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
     try {
       const currentEndDate = new Date(booking.endDateTime);
       const newEndDate = extensionData.newEndDate;
-      const extensionType = extensionData.extendBy === "hour" ? "HOUR" : "DAY";
+      const bookingPeriodType = booking.rentalPeriodType?.toUpperCase();
+      const effectiveBookingDayPrice = bookingPeriodType === "WEEK"
+        ? (booking.bike?.pricePerWeek || 0) / 7
+        : bookingPeriodType === "MONTH"
+        ? (booking.bike?.pricePerMonth || 0) / 30
+        : booking.bike?.pricePerDay || 0;
+      const extensionType = extensionData.extendBy === "hour" ? "HOUR" : extensionData.extendBy === "day" ? "DAY" : extensionData.extendBy === "week" ? "WEEK" : "MONTH";
       const extendDuration = extensionData.extendBy === "hour"
         ? String(extensionData.hours)
-        : String(extensionData.days);
+        : extensionData.extendBy === "day"
+        ? String(extensionData.days)
+        : extensionData.extendBy === "week"
+        ? String(extensionData.weeks)
+        : String(extensionData.months);
       const pricePerDuration = extensionData.extendBy === "hour"
         ? String(booking.bike?.pricePerHour || 0)
-        : String(booking.bike?.pricePerDay || 0);
+        : extensionData.extendBy === "day"
+        ? String(effectiveBookingDayPrice || 0)
+        : extensionData.extendBy === "week"
+        ? String(booking.bike?.pricePerWeek || 0)
+        : String(booking.bike?.pricePerMonth || 0);
 
       // Create Razorpay order first
       const orderResponse = await createRazorpayOrder({
@@ -639,7 +855,7 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
       // Initiate Razorpay payment with order ID
       await initiateRazorpayPayment({
         amount: extensionData.price,
-        description: `Extend booking #${booking.id} by ${extensionData.extendBy === "hour" ? extensionData.hours + " hour(s)" : extensionData.days + " day(s)"}`,
+        description: `Extend booking #${booking.id} by ${extensionData.extendBy === "hour" ? extensionData.hours + " hour(s)" : extensionData.extendBy === "day" ? extensionData.days + " day(s)" : extensionData.extendBy === "week" ? extensionData.weeks + " week(s)" : extensionData.months + " month(s)"}`,
         orderId: orderResponse.orderId,
         prefill: {
           name: user?.firstName + " " + user?.lastName,
@@ -700,7 +916,15 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
         bookingId={booking.id}
         currentEndDate={booking.endDateTime}
         pricePerHour={booking.bike?.pricePerHour || 0}
-        pricePerDay={booking.bike?.pricePerDay || 0}
+        pricePerDay={
+          booking.rentalPeriodType?.toUpperCase() === "WEEK"
+            ? (booking.bike?.pricePerWeek || 0) / 7
+            : booking.rentalPeriodType?.toUpperCase() === "MONTH"
+            ? (booking.bike?.pricePerMonth || 0) / 30
+            : booking.bike?.pricePerDay || 0
+        }
+        pricePerWeek={booking.bike?.pricePerWeek || 0}
+        pricePerMonth={booking.bike?.pricePerMonth || 0}
       />
     <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
       <div className="md:flex">

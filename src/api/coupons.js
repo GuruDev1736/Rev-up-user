@@ -3,11 +3,12 @@ import { apiGet, apiPut } from "@/lib/apiClient";
 /**
  * Get coupon details by coupon code
  * @param {string} couponCode - The coupon code to validate
+ * @param {string} userId - The user ID to apply the coupon for
  * @returns {Promise<Object>} Coupon details
  */
-export const applyCoupon = async (couponCode) => {
+export const applyCoupon = async (couponCode, userId) => {
   try {
-    const response = await apiGet(`/api/coupons/${couponCode}`);
+    const response = await apiGet(`/api/coupons/${couponCode}?userId=${userId}`);
 
     if (response && response.STS === "200" && response.CONTENT) {
       const coupon = response.CONTENT;
@@ -53,11 +54,12 @@ export const applyCoupon = async (couponCode) => {
 /**
  * Submit coupon usage after successful payment
  * @param {string} couponCode - The coupon code to apply
+ * @param {string} userId - The user ID to apply the coupon for
  * @returns {Promise<Object>} Response from the server
  */
-export const submitCouponUsage = async (couponCode) => {
+export const submitCouponUsage = async (couponCode, userId) => {
   try {
-    const response = await apiPut(`/api/coupons/apply/${couponCode}`);
+    const response = await apiPut(`/api/coupons/apply/${couponCode}?userId=${userId}`);
     return {
       success: response?.STS === "200",
       message: response?.MSG || "Coupon usage recorded",
