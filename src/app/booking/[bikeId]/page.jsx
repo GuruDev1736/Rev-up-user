@@ -11,6 +11,7 @@ import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { createRazorpayOrder } from "@/api/razorpay";
 import { checkAndCompressDocument } from "@/lib/documentUtils";
 import { useAuth } from "@/contexts/AuthContext";
+import { getDigilockerAuthUrl, getDigilockerStatus } from "@/api/digilocker";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
 
@@ -126,6 +127,10 @@ export default function BookingPage() {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
   const [checkingBooking, setCheckingBooking] = useState(true);
+  const [digilockerStatus, setDigilockerStatus] = useState(null);
+  const [digilockerLoading, setDigilockerLoading] = useState(true);
+  const [digilockerError, setDigilockerError] = useState(null);
+  const [digilockerAuthLoading, setDigilockerAuthLoading] = useState(false);
   const [showPaymentTerms, setShowPaymentTerms] = useState(false);
   const [pendingPayment, setPendingPayment] = useState(null);
 
@@ -151,6 +156,74 @@ export default function BookingPage() {
 
     checkUserBooking();
   }, [user, fromRequest]);
+
+  useEffect(() => {
+    const fetchDigilockerStatus = async () => {
+      if (!user?.userId) {
+        setDigilockerStatus(null);
+        setDigilockerLoading(false);
+        return;
+      }
+
+      try {
+        setDigilockerError(null);
+        setDigilockerLoading(true);
+        const response = await getDigilockerStatus(user.userId);
+        setDigilockerStatus(response);
+      } catch (error) {
+        console.error("Error fetching DigiLocker status:", error);
+        setDigilockerError(error?.message || "Failed to fetch DigiLocker status.");
+      } finally {
+        setDigilockerLoading(false);
+      }
+    };
+
+    fetchDigilockerStatus();
+  }, [user]);
+
+  const handleVerifyWithDigilocker = async () => {
+    try {
+      setDigilockerError(null);
+      setDigilockerAuthLoading(true);
+      const response = await getDigilockerAuthUrl(user.userId);
+      const authUrl = response?.authUrl;
+      if (!authUrl) {
+        throw new Error("Digilocker authorization URL is unavailable.");
+      }
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Error starting DigiLocker verification:", error);
+      setDigilockerError(error?.message || "Unable to open DigiLocker authorization.");
+      setDigilockerAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "digilocker-callback") return;
+
+      if (event.data.success) {
+        setDigilockerStatus({ verified: true, status: "VERIFIED", verifiedAt: new Date().toISOString() });
+      } else {
+        setDigilockerError(event.data.error || "DigiLocker verification failed.");
+      }
+      setDigilockerAuthLoading(false);
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, []);
+
+  const isDigilockerVerified = digilockerStatus?.verified || digilockerStatus?.status === "VERIFIED";
+
+  useEffect(() => {
+    if (isDigilockerVerified) {
+      setDigilockerError(null);
+    }
+  }, [isDigilockerVerified]);
 
   useEffect(() => {
     const fetchBikeData = async () => {
@@ -499,6 +572,11 @@ export default function BookingPage() {
       return;
     }
 
+    if (!isDigilockerVerified) {
+      alert("You must verify via DigiLocker before booking a bike.");
+      return;
+    }
+
     if (!currentAddress.trim()) {
       alert("Please enter your current address");
       return;
@@ -801,6 +879,38 @@ export default function BookingPage() {
             </button>
           </div>
         )}
+
+        {/* DigiLocker Verification Status */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">DigiLocker Verification</h2>
+              {digilockerLoading ? (
+                <p className="text-sm text-gray-600 mt-2">Checking your DigiLocker verification status...</p>
+              ) : digilockerError ? (
+                <p className="text-sm text-red-600 mt-2">{digilockerError}</p>
+              ) : isDigilockerVerified ? (
+                <p className="text-sm text-green-700 mt-2">You are verified via DigiLocker{digilockerStatus?.verifiedAt ? ` on ${new Date(digilockerStatus.verifiedAt).toLocaleString()}` : ''}.</p>
+              ) : (
+                <p className="text-sm text-gray-600 mt-2">You need DigiLocker verification before booking a bike.</p>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${isDigilockerVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {digilockerLoading ? 'Checking' : isDigilockerVerified ? 'VERIFIED' : 'NOT VERIFIED'}
+              </span>
+              {!isDigilockerVerified && (
+                <button
+                  onClick={handleVerifyWithDigilocker}
+                  disabled={digilockerLoading || digilockerAuthLoading}
+                  className="px-5 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {digilockerAuthLoading ? 'Opening DigiLocker...' : 'Verify via DigiLocker'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Out of Stock Warning */}
         {bike.quantity === 0 && (

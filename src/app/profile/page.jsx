@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Container from "@/components/common/Container";
 import { resetPassword } from "@/api/auth";
 import { getUserById, updateUser, uploadProfilePicture } from "@/api/user";
+import { getDigilockerAuthUrl, getDigilockerStatus, getDigilockerDocuments, downloadDigilockerDocument } from "@/api/digilocker";
 
 export default function Profile() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -16,6 +17,13 @@ export default function Profile() {
   const [profileData, setProfileData] = useState(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState(null);
+  const [digilockerStatus, setDigilockerStatus] = useState(null);
+  const [digilockerLoading, setDigilockerLoading] = useState(true);
+  const [digilockerError, setDigilockerError] = useState(null);
+  const [digilockerDocuments, setDigilockerDocuments] = useState([]);
+  const [digilockerDocumentsLoading, setDigilockerDocumentsLoading] = useState(false);
+  const [digilockerDocumentsError, setDigilockerDocumentsError] = useState(null);
+  const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
 
   // Edit Profile Modal States
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -101,6 +109,119 @@ export default function Profile() {
       fetchUserProfile();
     }
   }, [mounted, isAuthenticated, user]);
+
+  useEffect(() => {
+    const fetchDigilockerStatus = async () => {
+      if (!user?.userId) {
+        setDigilockerStatus(null);
+        setDigilockerLoading(false);
+        return;
+      }
+
+      try {
+        setDigilockerError(null);
+        setDigilockerLoading(true);
+        const response = await getDigilockerStatus(user.userId);
+        setDigilockerStatus(response);
+      } catch (error) {
+        console.error("Error fetching DigiLocker status:", error);
+        setDigilockerError(error?.message || "Failed to fetch DigiLocker status.");
+      } finally {
+        setDigilockerLoading(false);
+      }
+    };
+
+    if (mounted && isAuthenticated && user) {
+      fetchDigilockerStatus();
+    }
+  }, [mounted, isAuthenticated, user]);
+
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      if (!user?.userId) {
+        setDigilockerDocuments([]);
+        setDigilockerDocumentsLoading(false);
+        return;
+      }
+
+      try {
+        setDigilockerDocumentsError(null);
+        setDigilockerDocumentsLoading(true);
+        const response = await getDigilockerDocuments(user.userId);
+        
+        if (response?.items && Array.isArray(response.items)) {
+          setDigilockerDocuments(response.items);
+        } else {
+          setDigilockerDocuments([]);
+        }
+      } catch (error) {
+        console.error("Error fetching DigiLocker documents:", error);
+        setDigilockerDocumentsError(error?.message || "Failed to fetch documents.");
+      } finally {
+        setDigilockerDocumentsLoading(false);
+      }
+    };
+
+    if (mounted 
+      && isAuthenticated 
+      && user 
+      // && digilockerStatus?.verified
+    ) {
+      fetchDocuments();
+    }
+  }, [mounted, isAuthenticated, user, digilockerStatus]);
+
+  const handleVerifyWithDigilocker = async () => {
+    try {
+      setDigilockerError(null);
+      setDigilockerLoading(true);
+      const response = await getDigilockerAuthUrl(user.userId);
+      const authUrl = response?.authUrl;
+      if (!authUrl) {
+        throw new Error("Digilocker authorization URL is unavailable.");
+      }
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Error starting DigiLocker verification:", error);
+      setDigilockerError(error?.message || "Unable to open DigiLocker authorization.");
+      setDigilockerLoading(false);
+    }
+  };
+
+  const handleDownloadDocument = async (documentId) => {
+    try {
+      setDownloadingDocumentId(documentId);
+
+      const response =
+        await downloadDigilockerDocument(documentId);
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to download document"
+        );
+      }
+
+      const blob = await response.blob();
+
+      const url =
+        window.URL.createObjectURL(blob);
+
+      window.open(url, "_blank");
+
+    } catch (error) {
+      console.error(
+        "Error downloading document:",
+        error
+      );
+
+      alert(
+        error?.message ||
+        "Failed to download document"
+      );
+    } finally {
+      setDownloadingDocumentId(null);
+    }
+  };
 
   const handleOpenEditProfile = () => {
     if (displayData) {
@@ -323,6 +444,7 @@ export default function Profile() {
 
   // Use profileData from API, fallback to context user data
   const displayData = profileData || user;
+  const hasDrivingLicense = digilockerDocuments.some((doc) => doc.type === "DRIVING_LICENSE");
 
   return (
     <div className="min-h-screen bg-gray-50 pt-28 pb-12">
@@ -336,6 +458,36 @@ export default function Profile() {
             <p className="text-gray-600">
               Manage your account information
             </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Digilocker Verification</h2>
+                {digilockerLoading ? (
+                  <p className="text-sm text-gray-600 mt-2">Checking verification status...</p>
+                ) : digilockerError ? (
+                  <p className="text-sm text-red-600 mt-2">{digilockerError}</p>
+                ) : digilockerStatus?.verified ? (
+                  <p className="text-sm text-green-700 mt-2">Verified via DigiLocker{digilockerStatus?.verifiedAt ? ` on ${new Date(digilockerStatus.verifiedAt).toLocaleString()}` : ''}.</p>
+                ) : (
+                  <p className="text-sm text-gray-600 mt-2">Your account is not verified via DigiLocker. Verification is recommended to unlock all features.</p>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${digilockerStatus?.verified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {digilockerStatus?.status || (digilockerLoading ? 'Loading' : 'Not Verified')}
+                </span>
+                {!digilockerStatus?.verified && (
+                  <button
+                    onClick={handleVerifyWithDigilocker}
+                    className="px-5 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+                  >
+                    Verify via DigiLocker
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Profile Information */}
@@ -424,6 +576,78 @@ export default function Profile() {
               </div>
             </div>
           </div>
+
+          {/* DigiLocker Documents Section */}
+          {
+          // digilockerStatus?.verified && 
+          (
+            <div className="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+              <div className="mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Your Documents</h2>
+                    <p className="text-sm text-gray-600">Documents fetched from DigiLocker</p>
+                  </div>
+                  {!hasDrivingLicense && (
+                    <div className="rounded-xl bg-yellow-100 border border-yellow-300 px-4 py-3 text-sm text-yellow-800">
+                      Driving license is required to book rides!
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {digilockerDocumentsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600 mx-auto mb-3"></div>
+                    <p className="text-gray-600 text-sm">Loading documents...</p>
+                  </div>
+                </div>
+              ) : digilockerDocumentsError ? (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                  <p className="text-red-700 text-sm">{digilockerDocumentsError}</p>
+                </div>
+              ) : digilockerDocuments.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-sm">No documents found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {digilockerDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-red-300 hover:bg-red-50 transition-all"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{doc.name || 'Unknown Document'}</p>
+                        <div className="flex gap-4 mt-1 text-xs text-gray-600">
+                          {doc.type && <span className="px-2 py-1 bg-gray-100 rounded">Type: {doc.type}</span>}
+                          {doc.issuerName && <span className="px-2 py-1 bg-gray-100 rounded">Issuer: {doc.issuerName}</span>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDownloadDocument(doc.id)}
+                        disabled={downloadingDocumentId === doc.id}
+                        className="ml-4 flex-shrink-0 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {downloadingDocumentId === doc.id ? (
+                          <>
+                            <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                            Downloading...
+                          </>
+                        ) : (
+                          <>
+                            <span>⬇️</span>
+                            Download
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Container>
 

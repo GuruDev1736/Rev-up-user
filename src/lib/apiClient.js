@@ -86,11 +86,57 @@ export const apiCall = async (endpoint, options = {}) => {
   }
 };
 
+export const apiBlobCall = async (endpoint, options = {}) => {
+  const {
+    method = "GET",
+    body = null,
+    includeAuth = true,
+    customHeaders = {},
+    preventRedirect = false,
+    ...otherOptions
+  } = options;
+
+  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
+  
+  const config = {
+    method,
+    headers: createHeaders(includeAuth, customHeaders),
+    ...otherOptions
+  };
+
+  try {
+    const response = await fetch(url, config);
+    if (response.status === 401 && includeAuth) {
+      if (!preventRedirect && typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Redirect to login page
+        window.location.href = '/login';
+      }
+      throw new Error('Authentication failed. Please login again.');
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error(`API call failed for ${endpoint}:`, error.message);
+    return { success: false, message: error.message };
+  }
+};
+
 // Convenience methods for different HTTP methods
 
 export const apiGet = (endpoint, options = {}) => {
   return apiCall(endpoint, { ...options, method: "GET" });
 };
+
+export const apiGetBlob = (endpoint, options = {}) => {
+  return apiBlobCall(endpoint, { ...options, method: "GET" });
+}
 
 export const apiPost = (endpoint, body, options = {}) => {
   return apiCall(endpoint, { ...options, method: "POST", body });
