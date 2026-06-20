@@ -98,7 +98,7 @@ export async function GET(request) {
     const tokenUrl = 'https://digilocker.gov.in/public/oauth2/1/token';
     const clientId = process.env.DIGILOCKER_CLIENT_ID;
     const clientSecret = process.env.DIGILOCKER_CLIENT_SECRET;
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/digilocker/callback`;
+    const redirectUri = 'http://localhost:3000/api/digilocker/callback';
 
     const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
