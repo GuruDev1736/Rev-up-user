@@ -1,27 +1,42 @@
-"use client"
+"use client";
 
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+
+function DigilockerCallbackContent() {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    const error = searchParams.get("error");
+    const errorDescription = searchParams.get("error_description");
+
+    const params = new URLSearchParams();
+
+    if (error) {
+      console.error("DigiLocker returned an error:", error, errorDescription);
+      params.set("error", error);
+      if (errorDescription) params.set("error_description", errorDescription);
+    } else if (!code) {
+      console.error("Missing authorization code. Verification cannot continue.");
+      params.set("error", "missing_code");
+      params.set("error_description", "Missing authorization code.");
+    } else {
+      params.set("code", code);
+      if (state) params.set("state", state);
+    }
+
+    window.location.href = `/digilocker/callback?${params.toString()}`;
+  }, [searchParams]);
+
+  return <div>Redirecting...</div>;
+}
 
 export default function DigilockerCallbackPage() {
-    const searchParams = useSearchParams();
-    const [code, setCode] = useState(searchParams.get("code"));
-    const [state, setState] = useState(searchParams.get("state"));
-    const [error, setError] = useState(searchParams.get("error"));
-    const [errorDescription, setErrorDescription] = useState(searchParams.get("error_description"));
-
-    useEffect(() => {
-        if (error) {
-            console.error("DigiLocker returned an error:", error, errorDescription);
-            window.location.href = "/digilocker/callback?error=" + encodeURIComponent(error) + "&error_description=" + encodeURIComponent(errorDescription);
-            return;
-        } else if (!code) {
-            console.error("Missing authorization code. Verification cannot continue.");
-            window.location.href = "/digilocker/callback?error=missing_code&error_description=Missing authorization code.";
-            return;
-        } else {
-            window.location.href = "/digilocker/callback?code=" + encodeURIComponent(code) + "&state=" + encodeURIComponent(state);
-        }
-    }, [code, state, error, errorDescription]);
-
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DigilockerCallbackContent />
+    </Suspense>
+  );
 }
