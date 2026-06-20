@@ -122,7 +122,7 @@ export default function Profile() {
         setDigilockerError(null);
         setDigilockerLoading(true);
         const response = await getDigilockerStatus(user.userId);
-        setDigilockerStatus(response);
+        setDigilockerStatus(response.CONTENT);
       } catch (error) {
         console.error("Error fetching DigiLocker status:", error);
         setDigilockerError(error?.message || "Failed to fetch DigiLocker status.");
@@ -149,8 +149,8 @@ export default function Profile() {
         setDigilockerDocumentsLoading(true);
         const response = await getDigilockerDocuments(user.userId);
         
-        if (response?.items && Array.isArray(response.items)) {
-          setDigilockerDocuments(response.items);
+        if (response?.CONTENT?.items && Array.isArray(response.CONTENT.items)) {
+          setDigilockerDocuments(response.CONTENT.items);
         } else {
           setDigilockerDocuments([]);
         }
@@ -176,7 +176,7 @@ export default function Profile() {
       setDigilockerError(null);
       setDigilockerLoading(true);
       const response = await getDigilockerAuthUrl(user.userId);
-      const authUrl = response?.authUrl;
+      const authUrl = response?.CONTENT?.authUrl;
       if (!authUrl) {
         throw new Error("Digilocker authorization URL is unavailable.");
       }
@@ -188,36 +188,27 @@ export default function Profile() {
     }
   };
 
-  const handleDownloadDocument = async (documentId) => {
+  const handleDownloadDocument = async (doc) => {
     try {
-      setDownloadingDocumentId(documentId);
+      setDownloadingDocumentId(doc.id);
 
-      const response =
-        await downloadDigilockerDocument(documentId);
+      if (doc?.documentUrl) {
+        window.open(doc.documentUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      const response = await downloadDigilockerDocument(doc.id);
 
       if (!response.ok) {
-        throw new Error(
-          "Failed to download document"
-        );
+        throw new Error("Failed to download document");
       }
 
       const blob = await response.blob();
-
-      const url =
-        window.URL.createObjectURL(blob);
-
+      const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
-
     } catch (error) {
-      console.error(
-        "Error downloading document:",
-        error
-      );
-
-      alert(
-        error?.message ||
-        "Failed to download document"
-      );
+      console.error("Error downloading document:", error);
+      alert(error?.message || "Failed to download document");
     } finally {
       setDownloadingDocumentId(null);
     }
@@ -478,7 +469,9 @@ export default function Profile() {
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${digilockerStatus?.verified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   {digilockerStatus?.status || (digilockerLoading ? 'Loading' : 'Not Verified')}
                 </span>
-                {!digilockerStatus?.verified && (
+                {
+                // !digilockerStatus?.verified && 
+                (
                   <button
                     onClick={handleVerifyWithDigilocker}
                     className="px-5 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition"
@@ -623,10 +616,11 @@ export default function Profile() {
                         <div className="flex gap-4 mt-1 text-xs text-gray-600">
                           {doc.type && <span className="px-2 py-1 bg-gray-100 rounded">Type: {doc.type}</span>}
                           {doc.issuerName && <span className="px-2 py-1 bg-gray-100 rounded">Issuer: {doc.issuerName}</span>}
+                            {doc.documentUrl && <span className="px-2 py-1 bg-gray-100 rounded truncate max-w-[220px]">URL ready</span>}
                         </div>
                       </div>
                       <button
-                        onClick={() => handleDownloadDocument(doc.id)}
+                          onClick={() => handleDownloadDocument(doc)}
                         disabled={downloadingDocumentId === doc.id}
                         className="ml-4 flex-shrink-0 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
@@ -638,7 +632,7 @@ export default function Profile() {
                         ) : (
                           <>
                             <span>⬇️</span>
-                            Download
+                            View / Download
                           </>
                         )}
                       </button>
@@ -708,9 +702,7 @@ export default function Profile() {
                   />
                   Change Profile Picture
                 </label>
-                {uploadingImage && (
-                  <p className="text-sm text-gray-600 mt-2">Uploading image...</p>
-                )}
+                {uploadingImage && <p className="text-sm text-gray-600 mt-2">Uploading image...</p>}
               </div>
 
               {/* First Name & Last Name */}

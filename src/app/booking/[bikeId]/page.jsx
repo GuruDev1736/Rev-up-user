@@ -3,15 +3,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { uploadDocument } from "@/api/upload";
 import { createBooking, checkActiveBooking } from "@/api/bookings";
 import { getBikeById } from "@/api/bikes";
 import { applyCoupon, submitCouponUsage } from "@/api/coupons";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { createRazorpayOrder } from "@/api/razorpay";
-import { checkAndCompressDocument } from "@/lib/documentUtils";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDigilockerAuthUrl, getDigilockerStatus } from "@/api/digilocker";
+import { getDigilockerAuthUrl, getDigilockerStatus, getDigilockerDocuments } from "@/api/digilocker";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
 
@@ -109,8 +107,6 @@ export default function BookingPage() {
   const [fromTime, setFromTime] = useState("");
   const [toDate, setToDate] = useState("");
   const [toTime, setToTime] = useState("");
-  const [aadharCard, setAadharCard] = useState(null);
-  const [drivingLicense, setDrivingLicense] = useState(null);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [bookingResult, setBookingResult] = useState(null);
@@ -131,6 +127,9 @@ export default function BookingPage() {
   const [digilockerLoading, setDigilockerLoading] = useState(true);
   const [digilockerError, setDigilockerError] = useState(null);
   const [digilockerAuthLoading, setDigilockerAuthLoading] = useState(false);
+  const [digilockerDocuments, setDigilockerDocuments] = useState([]);
+  const [digilockerDocumentsLoading, setDigilockerDocumentsLoading] = useState(false);
+  const [digilockerDocumentsError, setDigilockerDocumentsError] = useState(null);
   const [showPaymentTerms, setShowPaymentTerms] = useState(false);
   const [pendingPayment, setPendingPayment] = useState(null);
 
@@ -169,7 +168,7 @@ export default function BookingPage() {
         setDigilockerError(null);
         setDigilockerLoading(true);
         const response = await getDigilockerStatus(user.userId);
-        setDigilockerStatus(response);
+        setDigilockerStatus(response.CONTENT);
       } catch (error) {
         console.error("Error fetching DigiLocker status:", error);
         setDigilockerError(error?.message || "Failed to fetch DigiLocker status.");
@@ -181,12 +180,43 @@ export default function BookingPage() {
     fetchDigilockerStatus();
   }, [user]);
 
+  useEffect(() => {
+    const fetchDigilockerDocuments = async () => {
+      if (!user?.userId) {
+        setDigilockerDocuments([]);
+        setDigilockerDocumentsLoading(false);
+        return;
+      }
+
+      try {
+        setDigilockerDocumentsError(null);
+        setDigilockerDocumentsLoading(true);
+        const response = await getDigilockerDocuments(user.userId);
+
+        if (response?.CONTENT?.items && Array.isArray(response.CONTENT.items)) {
+          setDigilockerDocuments(response.CONTENT.items);
+        } else {
+          setDigilockerDocuments([]);
+        }
+      } catch (error) {
+        console.error("Error fetching DigiLocker documents:", error);
+        setDigilockerDocumentsError(error?.message || "Failed to fetch DigiLocker documents.");
+      } finally {
+        setDigilockerDocumentsLoading(false);
+      }
+    };
+
+    if (user?.userId) {
+      fetchDigilockerDocuments();
+    }
+  }, [user]);
+
   const handleVerifyWithDigilocker = async () => {
     try {
       setDigilockerError(null);
       setDigilockerAuthLoading(true);
       const response = await getDigilockerAuthUrl(user.userId);
-      const authUrl = response?.authUrl;
+      const authUrl = response?.CONTENT?.authUrl;
       if (!authUrl) {
         throw new Error("Digilocker authorization URL is unavailable.");
       }
@@ -198,26 +228,11 @@ export default function BookingPage() {
     }
   };
 
-  useEffect(() => {
-    const handleMessage = (event) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type !== "digilocker-callback") return;
-
-      if (event.data.success) {
-        setDigilockerStatus({ verified: true, status: "VERIFIED", verifiedAt: new Date().toISOString() });
-      } else {
-        setDigilockerError(event.data.error || "DigiLocker verification failed.");
-      }
-      setDigilockerAuthLoading(false);
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, []);
-
   const isDigilockerVerified = digilockerStatus?.verified || digilockerStatus?.status === "VERIFIED";
+
+  const getDocumentByType = (type) => digilockerDocuments.find((doc) => doc.type === type);
+  const drivingLicenseDocument = getDocumentByType("DRIVING_LICENSE");
+  const hasRequiredDocuments = Boolean(drivingLicenseDocument?.documentUrl);
 
   useEffect(() => {
     if (isDigilockerVerified) {
@@ -536,25 +551,12 @@ export default function BookingPage() {
     setCouponError("");
   };
 
-  const handleFileChange = (e, type) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (type === "aadhar") {
-        setAadharCard(file);
-      } else {
-        setDrivingLicense(file);
-      }
-    }
-  };
-
   // Reset booking form to initial state
   const resetBookingForm = () => {
     setFromDate("");
     setFromTime("");
     setToDate("");
     setToTime("");
-    setAadharCard(null);
-    setDrivingLicense(null);
     setAcceptedTerms(false);
     setAcceptedDeposit(false);
     setCurrentAddress("");
@@ -592,13 +594,8 @@ export default function BookingPage() {
       return;
     }
 
-    if (!aadharCard) {
-      alert("Please upload your Aadhar Card");
-      return;
-    }
-
-    if (!drivingLicense) {
-      alert("Please upload your Driving License");
+    if (!drivingLicenseDocument?.documentUrl) {
+      alert("Please complete DigiLocker verification and ensure your Driving License is available.");
       return;
     }
 
@@ -638,22 +635,6 @@ export default function BookingPage() {
       const startDateTime = formatForAPI(fromDate, fromTime);
       const endDateTime = formatForAPI(toDate, toTime);
 
-      setUploadProgress("Uploading Aadhar Card...");
-      const compressedAadhar = await checkAndCompressDocument(aadharCard);
-      const aadharUpload = await uploadDocument(compressedAadhar, user.userId);
-
-      if (!aadharUpload.success) {
-        throw new Error("Failed to upload Aadhar Card");
-      }
-
-      setUploadProgress("Uploading Driving License...");
-      const compressedLicense = await checkAndCompressDocument(drivingLicense);
-      const licenseUpload = await uploadDocument(compressedLicense, user.userId);
-
-      if (!licenseUpload.success) {
-        throw new Error("Failed to upload Driving License");
-      }
-
       const { finalCost } = calculateBooking();
       const shouldCreateOrder = process.env.NODE_ENV === "production";
       let razorpayOrderId;
@@ -681,8 +662,8 @@ export default function BookingPage() {
         startDateTime: startDateTime,
         endDateTime: endDateTime,
         totalAmount: finalCost,
-        aadharcardUrl: aadharUpload.url,
-        drivingLicenseUrl: licenseUpload.url,
+        aadharcardUrl: null,
+        drivingLicenseUrl: drivingLicenseDocument?.documentUrl,
         presentAddress: currentAddress,
         permanentAddress: permanentAddress,
         alternateContactNumber: alternateMobile,
@@ -909,7 +890,54 @@ export default function BookingPage() {
                 </button>
               )}
             </div>
+            {!isDigilockerVerified && (
+              <div className="mt-4 rounded-xl bg-yellow-50 border border-yellow-200 p-4 text-sm text-yellow-800">
+                Aadhar and driving license on DigiLocker are required.
+              </div>
+            )}
           </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Driving License</h2>
+              <p className="text-sm text-gray-600 mt-1">Loaded from DigiLocker for this booking.</p>
+            </div>
+            <div className="text-sm text-gray-600">
+              {digilockerDocumentsLoading ? "Loading document..." : hasRequiredDocuments ? "Available" : "Not available"}
+            </div>
+          </div>
+
+          {digilockerDocumentsError ? (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+              <p className="text-sm text-red-700">{digilockerDocumentsError}</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900">Driving License</p>
+                  <p className="text-sm text-gray-600 mt-1 truncate">{drivingLicenseDocument?.name || "Not available"}</p>
+                </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${drivingLicenseDocument?.documentUrl ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                  {drivingLicenseDocument?.documentUrl ? "Available" : "Missing"}
+                </span>
+              </div>
+              {drivingLicenseDocument?.documentUrl ? (
+                <a
+                  href={drivingLicenseDocument.documentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
+                >
+                  Open document
+                </a>
+              ) : (
+                <p className="mt-4 text-sm text-gray-500">This document was not returned by DigiLocker.</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Out of Stock Warning */}
@@ -1349,121 +1377,6 @@ export default function BookingPage() {
               </div>
             </div>
 
-            {/* Document Upload */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-              <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-xl font-bold text-gray-900">Document Verification</h2>
-                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded">
-                  Required
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Upload your documents for verification
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Aadhar Card */}
-                <div className="space-y-3">
-                  <div className={`border-2 rounded-xl p-6 text-center transition-all ${
-                    aadharCard 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-300 hover:border-red-400'
-                  }`}>
-                    <div className="text-5xl mb-3">
-                      {aadharCard ? "📄" : "🆔"}
-                    </div>
-                    <div className="font-semibold text-gray-900 mb-1">Aadhar Card</div>
-                    
-                    {aadharCard ? (
-                      <div className="space-y-2">
-                        <div className="text-xs text-gray-600 mb-2">{aadharCard.name}</div>
-                        <button
-                          onClick={() => setAadharCard(null)}
-                          className="text-xs text-red-600 hover:text-red-700 underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-500 mb-2">Not uploaded</div>
-                    )}
-                  </div>
-
-                  {!aadharCard && (
-                    <div className="space-y-2">
-                      {/* Manual Upload */}
-                      <input
-                        type="file"
-                        id="aadhar"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handleFileChange(e, "aadhar")}
-                        className="hidden"
-                      />
-                      <label
-                        htmlFor="aadhar"
-                        className="w-full py-3 px-4 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:border-red-400 hover:bg-red-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        Upload Aadhar Card
-                      </label>
-                    </div>
-                  )}
-                </div>
-
-                {/* Driving License */}
-                <div className="space-y-3">
-                  <div className={`border-2 rounded-xl p-6 text-center transition-all ${
-                    drivingLicense 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-300 hover:border-red-400'
-                  }`}>
-                    <div className="text-5xl mb-3">
-                      {drivingLicense ? "📄" : "🚗"}
-                    </div>
-                    <div className="font-semibold text-gray-900 mb-1">Driving License</div>
-                    
-                    {drivingLicense ? (
-                      <div className="space-y-2">
-                        <div className="text-xs text-gray-600 mb-2">{drivingLicense.name}</div>
-                        <button
-                          onClick={() => setDrivingLicense(null)}
-                          className="text-xs text-red-600 hover:text-red-700 underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-500 mb-2">Not uploaded</div>
-                    )}
-                  </div>
-
-                  {!drivingLicense && (
-                    <div className="space-y-2">
-                      {/* Manual Upload */}
-                      <input
-                        type="file"
-                        id="license"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handleFileChange(e, "license")}
-                        className="hidden"
-                      />
-                      <label
-                        htmlFor="license"
-                        className="w-full py-3 px-4 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:border-red-400 hover:bg-red-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        Upload Driving License
-                      </label>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* Terms and Conditions */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Terms & Conditions</h2>
@@ -1591,8 +1504,8 @@ export default function BookingPage() {
                   !toTime ||
                   !currentAddress.trim() ||
                   !permanentAddress.trim() ||
-                  !aadharCard ||
-                  !drivingLicense ||
+                  !isDigilockerVerified ||
+                  !hasRequiredDocuments ||
                   !acceptedTerms ||
                   !acceptedDeposit
                 }
@@ -1606,8 +1519,8 @@ export default function BookingPage() {
                   !toTime ||
                   !currentAddress.trim() ||
                   !permanentAddress.trim() ||
-                  !aadharCard ||
-                  !drivingLicense ||
+                  !isDigilockerVerified ||
+                  !hasRequiredDocuments ||
                   !acceptedTerms ||
                   !acceptedDeposit
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
