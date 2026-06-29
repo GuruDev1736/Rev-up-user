@@ -10,8 +10,16 @@ import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { createRazorpayOrder } from "@/api/razorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDigilockerAuthUrl, getDigilockerStatus, getDigilockerDocuments } from "@/api/digilocker";
+import { getUserById } from "@/api/user";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
+
+const DAY_HOURS = 24;
+const WEEK_HOURS = 7 * DAY_HOURS;
+const MONTH_HOURS = 30 * DAY_HOURS;
+const MAX_HOURLY_THRESHOLD = 3;
+const MAX_DAILY_THRESHOLD = 5;
+const MAX_WEEKLY_THRESHOLD = 4;
 
 // Safe image source validator
 const getSafeImageSrc = (src) => {
@@ -130,6 +138,9 @@ export default function BookingPage() {
   const [digilockerDocuments, setDigilockerDocuments] = useState([]);
   const [digilockerDocumentsLoading, setDigilockerDocumentsLoading] = useState(false);
   const [digilockerDocumentsError, setDigilockerDocumentsError] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [userProfileLoading, setUserProfileLoading] = useState(true);
+  const [userProfileError, setUserProfileError] = useState(null);
   const [showPaymentTerms, setShowPaymentTerms] = useState(false);
   const [pendingPayment, setPendingPayment] = useState(null);
 
@@ -211,6 +222,35 @@ export default function BookingPage() {
     }
   }, [user]);
 
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.userId) {
+        setUserProfile(null);
+        setUserProfileLoading(false);
+        return;
+      }
+
+      try {
+        setUserProfileError(null);
+        setUserProfileLoading(true);
+        const response = await getUserById(user.userId);
+
+        if (response?.STS === "200" && response?.CONTENT) {
+          setUserProfile(response.CONTENT);
+        } else {
+          setUserProfile(null);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        setUserProfileError(error?.message || "Failed to fetch user profile.");
+      } finally {
+        setUserProfileLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
+
   const handleVerifyWithDigilocker = async () => {
     try {
       setDigilockerError(null);
@@ -229,10 +269,12 @@ export default function BookingPage() {
   };
 
   const isDigilockerVerified = digilockerStatus?.verified || digilockerStatus?.status === "VERIFIED";
+  const isAadhaarUploaded = Boolean(userProfile?.aadharUploaded);
 
   const getDocumentByType = (type) => digilockerDocuments.find((doc) => doc.type === type);
   const drivingLicenseDocument = getDocumentByType("DRIVING_LICENSE");
   const hasRequiredDocuments = Boolean(drivingLicenseDocument?.documentUrl);
+  const canProceedWithBooking = isDigilockerVerified && isAadhaarUploaded && hasRequiredDocuments;
 
   useEffect(() => {
     if (isDigilockerVerified) {
@@ -433,21 +475,34 @@ export default function BookingPage() {
     return `${date} ${time}`;
   };
 
-  // Get price based on selected pricing period from API response
-  const getPriceByPeriod = () => {
+  const getDailyRate = () => {
     if (!bike) return 0;
-    
+    return bike.pricePerDay || 0;
+  };
+
+  const getHourlyRate = () => {
+    if (!bike) return 0;
+    return bike.pricePerHour || 0;
+  };
+
+  const getWeeklyRate = () => {
+    if (!bike) return 0;
+    return bike.pricePerWeek || 0;
+  };
+
+  const getMonthlyRate = () => {
+    if (!bike) return 0;
+    return bike.pricePerMonth || 0;
+  };
+
+  const getCurrentPriceForPeriod = () => {
     switch (pricingPeriod) {
-      case "day":
-        return bike.pricePerDay || 0;
       case "week":
-        // Return weekly price divided by 7 for daily rate
-        return bike.pricePerWeek ? bike.pricePerWeek / 7 : bike.pricePerDay || 0;
+        return getWeeklyRate();
       case "month":
-        // Return monthly price divided by 30 for daily rate
-        return bike.pricePerMonth ? bike.pricePerMonth / 30 : bike.pricePerDay || 0;
+        return getMonthlyRate();
       default:
-        return bike.pricePerDay || 0;
+        return getDailyRate();
     }
   };
 
@@ -484,14 +539,128 @@ export default function BookingPage() {
 
     const from = new Date(`${fromDate}T${fromTime}`);
     const to = new Date(`${toDate}T${toTime}`);
-    const diffTime = Math.abs(to - from);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    const pricePerDay = getPriceByPeriod();
-    const subtotal = diffDays * pricePerDay;
+    const diffTime = Math.abs(to - from);
+    const totalHours = diffTime / (1000 * 60 * 60);
+
+    let subtotal = 0;
+
+    const hourlyRate = getHourlyRate();
+    const dailyRate = getDailyRate();
+    const weeklyRate = getWeeklyRate();
+    const monthlyRate = getMonthlyRate();
+
+    switch (pricingPeriod) {
+
+      case "day": {
+        const fullDays = Math.floor(totalHours / DAY_HOURS);
+
+        // Require minimum 1 day
+        if (fullDays < 1) {
+          subtotal = 0;
+          break;
+        }
+
+        const remainingHours = totalHours % DAY_HOURS;
+
+        if (remainingHours > 0 && remainingHours < MAX_HOURLY_THRESHOLD) {
+          subtotal =
+            (fullDays * dailyRate) +
+            (Math.ceil(remainingHours) * hourlyRate);
+        } else {
+          subtotal = (fullDays + 1) * dailyRate;
+        }
+
+        break;
+      }
+
+      case "week": {
+        const fullWeeks = Math.floor(totalHours / WEEK_HOURS);
+
+        if (fullWeeks < 1) {
+          subtotal = 0;
+          break;
+        }
+
+        let remainingHours = totalHours % WEEK_HOURS;
+
+        const extraDays = Math.floor(remainingHours / DAY_HOURS);
+        remainingHours = remainingHours % DAY_HOURS;
+
+        // 4+ days => new week
+        if (extraDays >= MAX_DAILY_THRESHOLD) {
+          subtotal = (fullWeeks + 1) * weeklyRate;
+          break;
+        }
+
+        subtotal =
+          (fullWeeks * weeklyRate) +
+          (extraDays * dailyRate);
+
+        // Hour handling
+        if (remainingHours > 0) {
+          if (remainingHours < MAX_HOURLY_THRESHOLD) {
+            subtotal += Math.ceil(remainingHours) * hourlyRate;
+          } else {
+            subtotal += dailyRate;
+          }
+        }
+
+        break;
+      }
+
+      case "month": {
+        const fullMonths = Math.floor(totalHours / MONTH_HOURS);
+
+        if (fullMonths < 1) {
+          subtotal = 0;
+          break;
+        }
+
+        let remainingHours = totalHours % MONTH_HOURS;
+
+        const extraWeeks = Math.floor(remainingHours / WEEK_HOURS);
+        remainingHours = remainingHours % WEEK_HOURS;
+
+        // 3+ weeks => new month
+        if (extraWeeks >= MAX_WEEKLY_THRESHOLD) {
+          subtotal = (fullMonths + 1) * monthlyRate;
+          break;
+        }
+
+        const extraDays = Math.floor(remainingHours / DAY_HOURS);
+        remainingHours = remainingHours % DAY_HOURS;
+
+        subtotal =
+          (fullMonths * monthlyRate) +
+          (extraWeeks * weeklyRate);
+
+        // 4+ days => new week
+        if (extraDays >= MAX_DAILY_THRESHOLD) {
+          subtotal += weeklyRate;
+          break; // ignore hours
+        }
+
+        subtotal += extraDays * dailyRate;
+
+        // Hour handling
+        if (remainingHours > 0) {
+          if (remainingHours < MAX_HOURLY_THRESHOLD) {
+            subtotal += Math.ceil(remainingHours) * hourlyRate;
+          } else {
+            subtotal += dailyRate;
+          }
+        }
+
+        break;
+      }
+
+      default:
+        subtotal = dailyRate;
+    }
+
     let discount = 0;
-    
-    // Apply coupon discount if available (percentage based)
+
     if (appliedCoupon && appliedCoupon.discount) {
       discount = (subtotal * appliedCoupon.discount) / 100;
     }
@@ -499,7 +668,7 @@ export default function BookingPage() {
     const finalCost = Math.max(0, subtotal - discount);
 
     return {
-      days: diffDays,
+      days: Math.ceil(totalHours / 24),
       totalCost: subtotal,
       discount: discount,
       finalCost: finalCost,
@@ -576,6 +745,11 @@ export default function BookingPage() {
 
     if (!isDigilockerVerified) {
       alert("You must verify via DigiLocker before booking a bike.");
+      return;
+    }
+
+    if (!isAadhaarUploaded) {
+      alert("Please upload your Aadhaar in your profile before booking a bike.");
       return;
     }
 
@@ -899,6 +1073,34 @@ export default function BookingPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Aadhaar Upload</h2>
+              {userProfileLoading ? (
+                <p className="text-sm text-gray-600 mt-2">Checking your Aadhaar status...</p>
+              ) : userProfileError ? (
+                <p className="text-sm text-red-600 mt-2">{userProfileError}</p>
+              ) : isAadhaarUploaded ? (
+                <p className="text-sm text-green-700 mt-2">Your Aadhaar has been uploaded and is available for booking.</p>
+              ) : (
+                <p className="text-sm text-gray-600 mt-2">Upload your Aadhaar from your profile before you can book a bike.</p>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${isAadhaarUploaded ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                {userProfileLoading ? 'Checking' : isAadhaarUploaded ? 'UPLOADED' : 'PENDING'}
+              </span>
+              <button
+                onClick={() => router.push('/profile')}
+                className="px-5 py-3 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 transition"
+              >
+                Go to Profile
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Driving License</h2>
@@ -1021,7 +1223,7 @@ export default function BookingPage() {
                       )}
                     </select>
                     <p className="text-xs text-gray-500 mt-1">
-                      Effective rate: <span className="text-red-600 font-semibold">₹{getPriceByPeriod()?.toFixed(2)}/day</span>
+                      Effective rate: <span className="text-red-600 font-semibold">₹{getCurrentPriceForPeriod()?.toFixed(2)}/day</span>
                     </p>
                     {pricingPeriod !== "day" && (
                       <p className="text-xs text-blue-600 mt-1 font-medium">
@@ -1222,7 +1424,7 @@ export default function BookingPage() {
                         Duration: {days} {days === 1 ? "Day" : "Days"}
                       </span>
                       <span className="text-gray-600 text-sm">
-                        ₹{getPriceByPeriod()?.toFixed(2)} × {days}
+                        ₹{getCurrentPriceForPeriod()?.toFixed(2)} × {days}
                       </span>
                     </div>
                     <p className="text-xs text-gray-500">
@@ -1453,7 +1655,7 @@ export default function BookingPage() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Rate per day:</span>
-                      <span className="font-semibold text-gray-900">₹{getPriceByPeriod()?.toFixed(2)}</span>
+                      <span className="font-semibold text-gray-900">₹{getCurrentPriceForPeriod()?.toFixed(2)}</span>
                     </div>
                     
                     {appliedCoupon && discount > 0 && (

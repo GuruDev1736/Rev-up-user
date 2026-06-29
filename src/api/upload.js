@@ -12,7 +12,7 @@ const fileToBase64 = (file) => {
   });
 };
 
-export const uploadDocument = async (file, userId) => {
+export const uploadDocument = async (file, userId, options = {}) => {
   try {
     // Convert file to base64
     const base64Data = await fileToBase64(file);
@@ -22,6 +22,8 @@ export const uploadDocument = async (file, userId) => {
       fileName: file.name.trim(),
       fileData: base64Data,
       userId: userId.toString(),
+      ...(options.documentType ? { documentType: options.documentType } : {}),
+      ...(options.aadharProfile !== undefined ? { aadharProfile: options.aadharProfile } : {}),
     };
 
     // Send to API

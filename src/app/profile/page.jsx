@@ -7,6 +7,8 @@ import Container from "@/components/common/Container";
 import { resetPassword } from "@/api/auth";
 import { getUserById, updateUser, uploadProfilePicture } from "@/api/user";
 import { getDigilockerAuthUrl, getDigilockerStatus, getDigilockerDocuments, downloadDigilockerDocument } from "@/api/digilocker";
+import { uploadDocument } from "@/api/upload";
+import { checkAndCompressDocument } from "@/lib/documentUtils";
 
 export default function Profile() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -38,6 +40,10 @@ export default function Profile() {
   const [editProfileError, setEditProfileError] = useState(null);
   const [editProfileSuccess, setEditProfileSuccess] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedAadhaarFile, setSelectedAadhaarFile] = useState(null);
+  const [aadharUploading, setAadharUploading] = useState(false);
+  const [aadharError, setAadharError] = useState(null);
+  const [aadharSuccess, setAadharSuccess] = useState(null);
 
   // Real-time field errors for edit profile
   const [editEmailError, setEditEmailError] = useState("");
@@ -254,6 +260,50 @@ export default function Profile() {
     }
   };
 
+  const handleAadhaarFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedAadhaarFile(file);
+      setAadharError(null);
+      setAadharSuccess(null);
+    }
+  };
+
+  const handleAadhaarUpload = async (e) => {
+    e.preventDefault();
+
+    if (!selectedAadhaarFile) {
+      setAadharError("Please select an Aadhaar document first.");
+      return;
+    }
+
+    setAadharUploading(true);
+    setAadharError(null);
+    setAadharSuccess(null);
+
+    try {
+      const compressedAadhaar = await checkAndCompressDocument(selectedAadhaarFile);
+      const response = await uploadDocument(compressedAadhaar, user.userId, {
+        documentType: "aadhaar",
+      });
+
+      if (response.success) {
+        const refreshedUser = await getUserById(user.userId);
+        if (refreshedUser?.STS === "200" && refreshedUser.CONTENT) {
+          setProfileData(refreshedUser.CONTENT);
+        }
+        setAadharSuccess("Aadhaar uploaded successfully. It will be used for booking verification.");
+        setSelectedAadhaarFile(null);
+      } else {
+        throw new Error(response.message || "Aadhaar upload failed");
+      }
+    } catch (error) {
+      setAadharError(error.message || "Something went wrong while uploading Aadhaar.");
+    } finally {
+      setAadharUploading(false);
+    }
+  };
+
   const convertImageToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -436,6 +486,8 @@ export default function Profile() {
   // Use profileData from API, fallback to context user data
   const displayData = profileData || user;
   const hasDrivingLicense = digilockerDocuments.some((doc) => doc.type === "DRIVING_LICENSE");
+  const aadhaarStatus = displayData?.aadharUploaded ? "Uploaded" : "Pending";
+  const aadhaarVerifiedStatus = displayData?.aadharVerified ? "Verified" : "Pending verification";
 
   return (
     <div className="min-h-screen bg-gray-50 pt-28 pb-12">
@@ -568,6 +620,57 @@ export default function Profile() {
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Aadhaar Upload</h2>
+                <p className="text-sm text-gray-600 mt-2">
+                  Upload your Aadhaar document here. This is required to book bikes once DigiLocker verification is complete.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${displayData?.aadharUploaded ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  {aadhaarStatus}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${displayData?.aadharVerified ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                  {aadhaarVerifiedStatus}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Choose Aadhaar document</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={handleAadhaarFileSelect}
+                  className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                />
+              </div>
+
+              <button
+                onClick={handleAadhaarUpload}
+                disabled={aadharUploading || !selectedAadhaarFile}
+                className="px-5 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {aadharUploading ? "Uploading..." : "Upload Aadhaar"}
+              </button>
+            </div>
+
+            {aadharError && (
+              <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                <p className="text-red-700 text-sm">{aadharError}</p>
+              </div>
+            )}
+
+            {aadharSuccess && (
+              <div className="mt-4 bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                <p className="text-green-700 text-sm">{aadharSuccess}</p>
+              </div>
+            )}
           </div>
 
           {/* DigiLocker Documents Section */}

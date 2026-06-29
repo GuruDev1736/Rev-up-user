@@ -1,4 +1,4 @@
-const MAX_DOCUMENT_SIZE = 1024 * 1024; // 1 MB
+const MAX_DOCUMENT_SIZE = 2 * 1024 * 1024; // 2 MB
 
 const readFileAsDataURL = (file) => {
   return new Promise((resolve, reject) => {
