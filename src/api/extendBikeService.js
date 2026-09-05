@@ -1,4 +1,5 @@
 import { apiPost } from "@/lib/apiClient";
+import { getToken } from "@/lib/storage";
 
 /**
  * Record a bike extension service entry.
@@ -13,6 +14,11 @@ export const extendBikeService = async ({
   extensionType,
 }) => {
   try {
+    const token = getToken();
+    if (!token) {
+      throw new Error("Your session has expired. Please log in again before extending the booking.");
+    }
+
     const response = await apiPost(`/api/extend-bike-service/extend?bookingId=${bookingId}`, {
       currentDateTime,
       newDateTime,
@@ -20,6 +26,10 @@ export const extendBikeService = async ({
       pricePerDuration,
       totalPrice,
       extensionType,
+    }, {
+      customHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     if (response?.STS === "200" && response?.CONTENT) {

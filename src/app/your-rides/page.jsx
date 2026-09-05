@@ -141,6 +141,15 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
   const [months, setMonths] = useState(1);
   const [extending, setExtending] = useState(false);
 
+  const handleQuantityChange = (setter, value) => {
+    setter(value === "" ? "" : value);
+  };
+
+  const normalizeQuantity = (setter, value) => {
+    const quantity = Number(value);
+    setter(Number.isInteger(quantity) && quantity > 0 ? quantity : 1);
+  };
+
   // Calculate new end time based on hours, days, weeks, or months
   const calculateNewEndTime = () => {
     if (!currentEndDate) return null;
@@ -378,7 +387,8 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     min="1"
                     max="168"
                     value={hours}
-                    onChange={(e) => setHours(parseInt(e.target.value) || 1)}
+                    onChange={(e) => handleQuantityChange(setHours, e.target.value)}
+                    onBlur={(e) => normalizeQuantity(setHours, e.target.value)}
                     disabled={extending}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
@@ -463,7 +473,8 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     min="1"
                     max="30"
                     value={days}
-                    onChange={(e) => setDays(parseInt(e.target.value) || 1)}
+                    onChange={(e) => handleQuantityChange(setDays, e.target.value)}
+                    onBlur={(e) => normalizeQuantity(setDays, e.target.value)}
                     disabled={extending}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
@@ -548,7 +559,8 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     min="1"
                     max="12"
                     value={weeks}
-                    onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
+                    onChange={(e) => handleQuantityChange(setWeeks, e.target.value)}
+                    onBlur={(e) => normalizeQuantity(setWeeks, e.target.value)}
                     disabled={extending}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
@@ -633,7 +645,8 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     min="1"
                     max="12"
                     value={months}
-                    onChange={(e) => setMonths(parseInt(e.target.value) || 1)}
+                    onChange={(e) => handleQuantityChange(setMonths, e.target.value)}
+                    onBlur={(e) => normalizeQuantity(setMonths, e.target.value)}
                     disabled={extending}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
