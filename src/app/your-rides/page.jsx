@@ -879,8 +879,8 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
           try {
             const extensionResult = await extendBikeService({
               bookingId: booking.id,
-              currentDateTime: formatDateTimeForExtensionApi(currentEndDate),
-              newDateTime: formatDateTimeForExtensionApi(newEndDate),
+              currentDateTime: formatDateForAPI(currentEndDate),
+              newDateTime: formatDateForAPI(newEndDate),
               extendDuration,
               pricePerDuration,
               totalPrice: Number(extensionData.price).toFixed(2),
