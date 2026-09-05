@@ -563,7 +563,9 @@ export default function BookingPage() {
 
         const remainingHours = totalHours % DAY_HOURS;
 
-        if (remainingHours > 0 && remainingHours < MAX_HOURLY_THRESHOLD) {
+        if (remainingHours === 0) {
+          subtotal = fullDays * dailyRate;
+        } else if (remainingHours < MAX_HOURLY_THRESHOLD) {
           subtotal =
             (fullDays * dailyRate) +
             (Math.ceil(remainingHours) * hourlyRate);
@@ -668,7 +670,7 @@ export default function BookingPage() {
     const finalCost = Math.max(0, subtotal - discount);
 
     return {
-      days: Math.ceil(totalHours / 24),
+      days: Math.floor(totalHours / DAY_HOURS),
       totalCost: subtotal,
       discount: discount,
       finalCost: finalCost,
