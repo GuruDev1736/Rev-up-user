@@ -998,6 +998,22 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
             )}
           </div>
 
+          {booking.extensions?.length > 0 && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs text-amber-800 font-semibold mb-2">Extended Booking</p>
+              {booking.extensions.map((extension) => (
+                <div key={extension.id} className="flex justify-between text-sm text-amber-900">
+                  <span>{extension.extendDuration} {extension.extensionType?.toLowerCase()} extension</span>
+                  <span className="font-semibold">₹{Number(extension.totalPrice || 0).toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="mt-2 pt-2 border-t border-amber-200 flex justify-between text-sm font-semibold text-amber-900">
+                <span>Updated total</span>
+                <span>₹{Number(booking.totalAmount || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
           {/* Documents Section */}
           {(booking.aadharcardUrl || booking.drivingLicenseUrl) && (
             <div className="mb-4 p-3 bg-gray-50 rounded-lg">

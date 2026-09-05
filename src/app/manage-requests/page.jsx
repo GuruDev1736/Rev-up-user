@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Container from "@/components/common/Container";
 import { getUserBikeRequests } from "@/api/requestBike";
+import { getUserBookings } from "@/api/bookings";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function ManageRequestsPage() {
@@ -25,8 +26,16 @@ export default function ManageRequestsPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getUserBikeRequests(user.userId);
-        setRequests(data);
+        const [data, bookings] = await Promise.all([
+          getUserBikeRequests(user.userId),
+          getUserBookings(user.userId),
+        ]);
+        const bookedBikeIds = new Set(
+          (bookings || [])
+            .filter((booking) => !["CANCELLED"].includes(booking.bookingStatus?.toUpperCase()))
+            .map((booking) => booking.bike?.id)
+        );
+        setRequests((data || []).filter((request) => !bookedBikeIds.has(request.bike?.id)));
       } catch (error) {
         console.error("Error fetching requests:", error);
         setError(error.message || "Failed to load requests");

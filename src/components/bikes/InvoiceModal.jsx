@@ -150,6 +150,22 @@ export default function InvoiceModal({ booking, isOpen, onClose }) {
             </div>
           </div>
 
+          {booking.extensions?.length > 0 && (
+            <div className="border border-amber-200 bg-amber-50 rounded-2xl p-5">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Extended Booking</h3>
+              {booking.extensions.map((extension) => (
+                <div key={extension.id} className="flex justify-between text-sm text-gray-800">
+                  <span>{extension.extendDuration} {extension.extensionType?.toLowerCase()} extension</span>
+                  <span className="font-semibold">₹{Number(extension.totalPrice || 0).toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="mt-3 pt-3 border-t border-amber-200 flex justify-between font-semibold">
+                <span>Updated total</span>
+                <span>₹{Number(booking.totalAmount || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
           {/* Payment Summary */}
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5">
             <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
