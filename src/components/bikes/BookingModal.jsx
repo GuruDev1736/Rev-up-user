@@ -9,6 +9,7 @@ import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { checkAndCompressDocument } from "@/lib/documentUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import InvoiceModal from "./InvoiceModal";
+import { getBilledDuration } from "@/lib/bookingPricing";
 
 export default function BookingModal({ bike, isOpen, onClose }) {
   const { user } = useAuth();
@@ -116,6 +117,7 @@ export default function BookingModal({ bike, isOpen, onClose }) {
   };
 
   const { days, totalCost, discount, finalCost, fromDateTime, toDateTime } = calculateBooking();
+  const billedDuration = getBilledDuration(fromDateTime, toDateTime, "DAY");
 
   // Apply coupon handler
   const handleApplyCoupon = async () => {
@@ -504,7 +506,7 @@ export default function BookingModal({ bike, isOpen, onClose }) {
               <div className="mt-4 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-gray-700 font-medium">
-                    Duration: {days} {days === 1 ? "Day" : "Days"}
+                    Billed as: {billedDuration}
                   </span>
                   <span className="text-gray-600 text-sm">
                     ₹{bike.pricePerDay.toFixed(2)} × {days}

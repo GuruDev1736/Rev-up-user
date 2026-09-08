@@ -9,6 +9,7 @@ import fallbackImage from "@/app/images/house.jpg";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { createRazorpayOrder } from "@/api/razorpay";
 import { extendBikeService } from "@/api/extendBikeService";
+import { getBilledDuration } from "@/lib/bookingPricing";
 
 // Cancel Booking Dialog Component
 const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
@@ -993,7 +994,7 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
           <div className="flex flex-wrap items-center gap-4 mb-4 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-500">⏱️</span>
-              <span className="text-gray-700">Duration: {calculateDuration()}</span>
+              <span className="text-gray-700">Billed as: {getBilledDuration(booking.startDateTime, booking.endDateTime, booking.rentalPeriodType)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-500">💰</span>

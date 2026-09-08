@@ -13,6 +13,7 @@ import { getDigilockerAuthUrl, getDigilockerStatus, getDigilockerDocuments } fro
 import { getUserById } from "@/api/user";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
+import { getBilledDuration } from "@/lib/bookingPricing";
 
 const DAY_HOURS = 24;
 const WEEK_HOURS = 7 * DAY_HOURS;
@@ -555,8 +556,8 @@ export default function BookingPage() {
       case "day": {
         const fullDays = Math.floor(totalHours / DAY_HOURS);
 
-        // Require minimum 1 day
-        if (fullDays < 1) {
+        // A daily booking must be at least 3 hours and is charged as one full day.
+        if (totalHours < MAX_HOURLY_THRESHOLD) {
           subtotal = 0;
           break;
         }
@@ -670,7 +671,7 @@ export default function BookingPage() {
     const finalCost = Math.max(0, subtotal - discount);
 
     return {
-      days: Math.floor(totalHours / DAY_HOURS),
+      days: totalHours >= MAX_HOURLY_THRESHOLD ? Math.max(1, Math.floor(totalHours / DAY_HOURS)) : 0,
       totalCost: subtotal,
       discount: discount,
       finalCost: finalCost,
@@ -680,6 +681,7 @@ export default function BookingPage() {
   };
 
   const { days, totalCost, discount, finalCost, fromDateTime, toDateTime } = calculateBooking();
+  const billedDuration = getBilledDuration(fromDateTime, toDateTime, pricingPeriod);
 
   // Apply coupon handler
   const handleApplyCoupon = async () => {
@@ -793,6 +795,7 @@ export default function BookingPage() {
     const from = new Date(`${fromDate}T${fromTime}`);
     const to = new Date(`${toDate}T${toTime}`);
     const now = new Date();
+    const totalHours = (to - from) / (1000 * 60 * 60);
 
     if (from < now) {
       alert("'From' date and time cannot be in the past");
@@ -801,6 +804,11 @@ export default function BookingPage() {
 
     if (from >= to) {
       alert("'To' date and time must be after 'From' date and time");
+      return;
+    }
+
+    if (pricingPeriod === "day" && totalHours < MAX_HOURLY_THRESHOLD) {
+      alert("Daily bookings require a minimum rental duration of 3 hours.");
       return;
     }
 
@@ -1423,10 +1431,10 @@ export default function BookingPage() {
                   <div className="mb-2">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-gray-700 font-medium">
-                        Duration: {days} {days === 1 ? "Day" : "Days"}
+                        Billed as: {billedDuration}
                       </span>
                       <span className="text-gray-600 text-sm">
-                        ₹{getCurrentPriceForPeriod()?.toFixed(2)} × {days}
+                        {getPeriodLabel()} billing units
                       </span>
                     </div>
                     <p className="text-xs text-gray-500">
@@ -1652,8 +1660,8 @@ export default function BookingPage() {
                 {days > 0 && (
                   <>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Duration:</span>
-                      <span className="font-semibold text-gray-900">{days} {days === 1 ? "Day" : "Days"}</span>
+                      <span className="text-gray-600">Billed as:</span>
+                      <span className="font-semibold text-gray-900">{billedDuration}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Rate per day:</span>
@@ -1706,6 +1714,7 @@ export default function BookingPage() {
                   !fromTime ||
                   !toDate ||
                   !toTime ||
+                  totalCost <= 0 ||
                   !currentAddress.trim() ||
                   !permanentAddress.trim() ||
                   !isDigilockerVerified ||
@@ -1721,6 +1730,7 @@ export default function BookingPage() {
                   !fromTime ||
                   !toDate ||
                   !toTime ||
+                  totalCost <= 0 ||
                   !currentAddress.trim() ||
                   !permanentAddress.trim() ||
                   !isDigilockerVerified ||

@@ -1,6 +1,7 @@
 "use client";
 
 import { downloadInvoice } from "@/api/bookings";
+import { getBilledDuration } from "@/lib/bookingPricing";
 
 export default function InvoiceModal({ booking, isOpen, onClose }) {
   if (!isOpen || !booking) return null;
@@ -142,8 +143,7 @@ export default function InvoiceModal({ booking, isOpen, onClose }) {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total Duration</span>
                   <span className="font-semibold text-gray-900">
-                    {booking.totalDays > 0 && `${booking.totalDays} Days `}
-                    {booking.totalHours > 0 && `${booking.totalHours} Hours`}
+                    {getBilledDuration(booking.startDateTime, booking.endDateTime, booking.rentalPeriodType)}
                   </span>
                 </div>
               </div>
