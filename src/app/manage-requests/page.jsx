@@ -12,6 +12,8 @@ export default function ManageRequestsPage() {
   const { user, isAuthenticated } = useAuth();
   const [requests, setRequests] = useState([]);
   const [bookedBikeIds, setBookedBikeIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -81,6 +83,30 @@ export default function ManageRequestsPage() {
     }
   };
 
+  const getStatusKey = (status) => {
+    const normalizedStatus = status?.toUpperCase();
+    if (['APPROVE', 'APPROVED'].includes(normalizedStatus)) return 'APPROVE';
+    if (['REJECT', 'REJECTED'].includes(normalizedStatus)) return 'REJECT';
+    return 'PENDING';
+  };
+
+  const filteredRequests = requests.filter((request) => {
+    const matchesStatus = statusFilter === "ALL" || getStatusKey(request.status) === statusFilter;
+    const bikeName = request.bike?.bikeName?.toLowerCase() || "";
+    const matchesSearch = bikeName.includes(searchQuery.trim().toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  const requestGroups = [
+    { key: "APPROVE", title: "Approved Requests", emptyText: "No approved requests" },
+    { key: "PENDING", title: "Pending Requests", emptyText: "No pending requests" },
+    { key: "REJECT", title: "Rejected Requests", emptyText: "No rejected requests" },
+  ];
+
+  const visibleRequestGroups = statusFilter === "ALL"
+    ? requestGroups
+    : requestGroups.filter((group) => group.key === statusFilter);
+
   const formatDate = (dateInput) => {
     if (!dateInput) return 'N/A';
     try {
@@ -103,6 +129,85 @@ export default function ManageRequestsPage() {
       return 'N/A';
     }
   };
+
+  const renderRequestCard = (request) => (
+    <div
+      key={request.id}
+      className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 flex flex-col h-full"
+    >
+      <div className="p-6 flex flex-col flex-grow">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-bold text-gray-900 mb-1 truncate">
+              {request.bike?.bikeName || 'Bike Request'}
+            </h3>
+            {request.bike?.place && (
+              <p className="text-xs text-gray-600 flex items-center gap-1 truncate">
+                <span>📍</span>
+                <span>{request.bike.place.placeName}</span>
+              </p>
+            )}
+          </div>
+          <div className={`px-3 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${getStatusColor(request.status)}`}>
+            {getStatusLabel(request.status)}
+          </div>
+        </div>
+
+        {request.bike && (
+          <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+            <div>
+              <p className="text-xs text-gray-500">Brand</p>
+              <p className="text-xs font-semibold text-gray-900 truncate">{request.bike.brand || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Model</p>
+              <p className="text-xs font-semibold text-gray-900 truncate">{request.bike.bikeModel || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Engine</p>
+              <p className="text-xs font-semibold text-gray-900">{request.bike.engineCapacity}cc</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Price</p>
+              <p className="text-xs font-semibold text-gray-900">₹{request.bike.pricePerDay}/day</p>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-4 flex-grow">
+          <p className="text-sm font-medium text-gray-700 mb-1">Request Note:</p>
+          <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-200 line-clamp-3">
+            {request.requestNote || 'No note provided'}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2 pt-4 border-t border-gray-200 mt-auto">
+          <div className="text-xs text-gray-500">
+            <span className="font-medium">Requested:</span> {formatDate(request.createdAt)}
+          </div>
+          {request.updatedAt && request.updatedAt !== request.createdAt && (
+            <div className="text-xs text-gray-500">
+              <span className="font-medium">Updated:</span> {formatDate(request.updatedAt)}
+            </div>
+          )}
+          {['APPROVE', 'APPROVED'].includes(request.status?.toUpperCase()) && request.bike?.id && (
+            bookedBikeIds.has(request.bike.id) ? (
+              <button type="button" disabled className="mt-3 w-full py-2.5 bg-gray-200 text-gray-500 rounded-lg font-semibold cursor-not-allowed">
+                Already Booked
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push(`/booking/${request.bike.id}?fromRequest=true`)}
+                className="mt-3 w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-md hover:shadow-lg"
+              >
+                Book Now
+              </button>
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -144,97 +249,56 @@ export default function ManageRequestsPage() {
           <p className="text-gray-600">View and track all your bike requests</p>
         </div>
 
-        {/* Requests List */}
+        {/* Search and filters */}
+        <div className="bg-white rounded-xl shadow-md p-5 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-4">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search by bike name..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+            />
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none bg-white"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="APPROVE">Approved</option>
+              <option value="PENDING">Pending</option>
+              <option value="REJECT">Rejected</option>
+            </select>
+          </div>
+        </div>
+
         {requests.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {requests.map((request) => (
-              <div
-                key={request.id}
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 flex flex-col h-full"
-              >
-                <div className="p-6 flex flex-col flex-grow">
-                  {/* Header Row */}
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-gray-900 mb-1 truncate">
-                        {request.bike?.bikeName || 'Bike Request'}
-                      </h3>
-                      {request.bike?.place && (
-                        <p className="text-xs text-gray-600 flex items-center gap-1 truncate">
-                          <span>📍</span>
-                          <span>{request.bike.place.placeName}</span>
-                        </p>
-                      )}
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${getStatusColor(request.status)}`}>
-                      {getStatusLabel(request.status)}
-                    </div>
+          <div className="space-y-8">
+            {visibleRequestGroups.map((group) => {
+              const groupRequests = filteredRequests.filter(
+                (request) => getStatusKey(request.status) === group.key
+              );
+
+              return (
+                <section key={group.key} className="bg-gray-50 rounded-2xl border border-gray-200 p-5 md:p-6">
+                  <div className="flex items-center justify-between gap-3 mb-5">
+                    <h2 className="text-xl font-bold text-gray-900">{group.title}</h2>
+                    <span className="px-3 py-1 rounded-full bg-white border border-gray-200 text-sm font-semibold text-gray-600">
+                      {groupRequests.length}
+                    </span>
                   </div>
-
-                  {/* Bike Details */}
-                  {request.bike && (
-                    <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="text-xs text-gray-500">Brand</p>
-                        <p className="text-xs font-semibold text-gray-900 truncate">{request.bike.brand || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Model</p>
-                        <p className="text-xs font-semibold text-gray-900 truncate">{request.bike.bikeModel || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Engine</p>
-                        <p className="text-xs font-semibold text-gray-900">{request.bike.engineCapacity}cc</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Price</p>
-                        <p className="text-xs font-semibold text-gray-900">₹{request.bike.pricePerDay}/day</p>
-                      </div>
+                  {groupRequests.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {groupRequests.map(renderRequestCard)}
                     </div>
-                  )}
-
-                  {/* Request Note */}
-                  <div className="mb-4 flex-grow">
-                    <p className="text-sm font-medium text-gray-700 mb-1">Request Note:</p>
-                    <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg border border-blue-200 line-clamp-3">
-                      {request.requestNote || 'No note provided'}
+                  ) : (
+                    <p className="bg-white rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                      {searchQuery || statusFilter !== "ALL" ? "No matching requests" : group.emptyText}
                     </p>
-                  </div>
-
-                  {/* Footer Row */}
-                  <div className="flex flex-col gap-2 pt-4 border-t border-gray-200 mt-auto">
-                    <div className="text-xs text-gray-500">
-                      <span className="font-medium">Requested:</span> {formatDate(request.createdAt)}
-                    </div>
-                    {request.updatedAt && request.updatedAt !== request.createdAt && (
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Updated:</span> {formatDate(request.updatedAt)}
-                      </div>
-                    )}
-                    
-                    {/* Book Now Button for Approved Requests */}
-                    {['APPROVE', 'APPROVED'].includes(request.status?.toUpperCase()) && request.bike?.id && (
-                      bookedBikeIds.has(request.bike.id) ? (
-                        <button
-                          type="button"
-                          disabled
-                          className="mt-3 w-full py-2.5 bg-gray-200 text-gray-500 rounded-lg font-semibold cursor-not-allowed"
-                        >
-                          Already Booked
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => router.push(`/booking/${request.bike.id}?fromRequest=true`)}
-                          className="mt-3 w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-md hover:shadow-lg"
-                        >
-                          Book Now
-                        </button>
-                      )
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                  )}
+                </section>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center p-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
