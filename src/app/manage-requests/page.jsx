@@ -11,6 +11,7 @@ export default function ManageRequestsPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [requests, setRequests] = useState([]);
+  const [bookedBikeIds, setBookedBikeIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -32,10 +33,11 @@ export default function ManageRequestsPage() {
         ]);
         const bookedBikeIds = new Set(
           (bookings || [])
-            .filter((booking) => !["CANCELLED"].includes(booking.bookingStatus?.toUpperCase()))
+            .filter((booking) => ["PENDING", "CONFIRMED", "ACTIVE"].includes(booking.bookingStatus?.toUpperCase()))
             .map((booking) => booking.bike?.id)
         );
-        setRequests((data || []).filter((request) => !bookedBikeIds.has(request.bike?.id)));
+        setBookedBikeIds(bookedBikeIds);
+        setRequests(data || []);
       } catch (error) {
         console.error("Error fetching requests:", error);
         setError(error.message || "Failed to load requests");
@@ -52,13 +54,30 @@ export default function ManageRequestsPage() {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'approve':
+      case 'approved':
       case 'confirmed':
         return 'bg-green-100 text-green-800 border-green-300';
       case 'reject':
+      case 'rejected':
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status?.toUpperCase()) {
+      case 'APPROVE':
+      case 'APPROVED':
+        return 'APPROVED';
+      case 'REJECT':
+      case 'REJECTED':
+        return 'REJECTED';
+      case 'PENDING':
+        return 'PENDING';
+      default:
+        return status || 'PENDING';
     }
   };
 
@@ -148,7 +167,7 @@ export default function ManageRequestsPage() {
                       )}
                     </div>
                     <div className={`px-3 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${getStatusColor(request.status)}`}>
-                      {request.status || 'Pending'}
+                      {getStatusLabel(request.status)}
                     </div>
                   </div>
 
@@ -194,13 +213,23 @@ export default function ManageRequestsPage() {
                     )}
                     
                     {/* Book Now Button for Approved Requests */}
-                    {request.status?.toUpperCase() === 'APPROVE' && request.bike?.id && (
-                      <button
-                        onClick={() => router.push(`/booking/${request.bike.id}?fromRequest=true`)}
-                        className="mt-3 w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-md hover:shadow-lg"
-                      >
-                        Book Now
-                      </button>
+                    {['APPROVE', 'APPROVED'].includes(request.status?.toUpperCase()) && request.bike?.id && (
+                      bookedBikeIds.has(request.bike.id) ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="mt-3 w-full py-2.5 bg-gray-200 text-gray-500 rounded-lg font-semibold cursor-not-allowed"
+                        >
+                          Already Booked
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => router.push(`/booking/${request.bike.id}?fromRequest=true`)}
+                          className="mt-3 w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-md hover:shadow-lg"
+                        >
+                          Book Now
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
