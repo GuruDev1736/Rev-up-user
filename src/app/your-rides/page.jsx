@@ -9,6 +9,7 @@ import fallbackImage from "@/app/images/house.jpg";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
 import { createRazorpayOrder } from "@/api/razorpay";
 import { extendBikeService } from "@/api/extendBikeService";
+import { applyCoupon, submitCouponUsage } from "@/api/coupons";
 import { getBilledDuration } from "@/lib/bookingPricing";
 
 // Cancel Booking Dialog Component
@@ -134,13 +135,17 @@ const CancelDialog = ({ isOpen, onClose, onConfirm, bookingId }) => {
 };
 
 // Extend Time Dialog Component
-const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDate, pricePerHour, pricePerDay, pricePerWeek, pricePerMonth }) => {
+const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, userId, currentEndDate, pricePerHour, pricePerDay, pricePerWeek, pricePerMonth }) => {
   const [extendOption, setExtendOption] = useState(""); // "hour" or "day" or "week" or "month"
   const [hours, setHours] = useState(1);
   const [days, setDays] = useState(1);
   const [weeks, setWeeks] = useState(1);
   const [months, setMonths] = useState(1);
   const [extending, setExtending] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   const handleQuantityChange = (setter, value) => {
     setter(value === "" ? "" : value);
@@ -185,6 +190,30 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
       return months * (pricePerMonth || 0);
     }
     return 0;
+  };
+
+  const calculateDiscountedExtensionPrice = () => {
+    const subtotal = calculateExtensionPrice();
+    const discount = appliedCoupon?.discount ? (subtotal * appliedCoupon.discount) / 100 : 0;
+    return Math.max(0, subtotal - discount);
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+    setApplyingCoupon(true);
+    setCouponError("");
+    try {
+      const response = await applyCoupon(couponCode.trim(), userId);
+      setAppliedCoupon(response.coupon);
+    } catch (error) {
+      setAppliedCoupon(null);
+      setCouponError(error.message || "Invalid coupon code");
+    } finally {
+      setApplyingCoupon(false);
+    }
   };
 
   // Format time for display
@@ -275,6 +304,8 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
         weeks: extendOption === "week" ? weeks : null,
         months: extendOption === "month" ? months : null,
         price: calculateExtensionPrice(),
+        discountedPrice: calculateDiscountedExtensionPrice(),
+        couponCode: appliedCoupon?.code || null,
         newEndDate: calculateNewEndTime()
       };
       await onConfirm(extensionData);
@@ -293,11 +324,35 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
       setDays(1);
       setWeeks(1);
       setMonths(1);
+      setCouponCode("");
+      setAppliedCoupon(null);
+      setCouponError("");
       onClose();
     }
   };
 
   if (!isOpen) return null;
+
+  const renderCouponControl = () => (
+    <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+      <label className="mb-2 block text-sm font-medium text-gray-700">Apply coupon to this extension:</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={couponCode}
+          onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+          placeholder="Enter coupon code"
+          disabled={extending || applyingCoupon}
+          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500"
+        />
+        <button type="button" onClick={handleApplyCoupon} disabled={extending || applyingCoupon} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+          {applyingCoupon ? "Applying..." : "Apply"}
+        </button>
+      </div>
+      {couponError && <p className="mt-2 text-xs text-red-600">{couponError}</p>}
+      {appliedCoupon && <p className="mt-2 text-xs font-semibold text-green-700">{appliedCoupon.code}: {appliedCoupon.discount}% discount applied to this extension.</p>}
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
@@ -394,6 +449,7 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
                   <p className="text-xs text-gray-500 mt-1">Enter 1-168 hours (up to 7 days)</p>
+                  {renderCouponControl()}
                 </div>
 
                 {/* Updated End Time & Price Display */}
@@ -419,7 +475,11 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-blue-300">
                         <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
-                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                        <div className="text-right">
+                          {appliedCoupon && <p className="text-xs text-gray-500 line-through">₹{calculateExtensionPrice().toFixed(2)}</p>}
+                          {appliedCoupon && <p className="text-xs font-semibold text-green-700">-{((calculateExtensionPrice() * appliedCoupon.discount) / 100).toFixed(2)} discount</p>}
+                          <span className="font-bold text-lg text-red-600">₹{calculateDiscountedExtensionPrice().toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -480,6 +540,7 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
                   <p className="text-xs text-gray-500 mt-1">Enter 1-30 days</p>
+                  {renderCouponControl()}
                 </div>
 
                 {/* Updated End Time & Price Display */}
@@ -505,7 +566,11 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-blue-300">
                         <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
-                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                        <div className="text-right">
+                          {appliedCoupon && <p className="text-xs text-gray-500 line-through">₹{calculateExtensionPrice().toFixed(2)}</p>}
+                          {appliedCoupon && <p className="text-xs font-semibold text-green-700">-{((calculateExtensionPrice() * appliedCoupon.discount) / 100).toFixed(2)} discount</p>}
+                          <span className="font-bold text-lg text-red-600">₹{calculateDiscountedExtensionPrice().toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -566,6 +631,7 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
                   <p className="text-xs text-gray-500 mt-1">Enter 1-12 weeks</p>
+                  {renderCouponControl()}
                 </div>
 
                 {/* Updated End Time & Price Display */}
@@ -591,7 +657,11 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-blue-300">
                         <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
-                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                        <div className="text-right">
+                          {appliedCoupon && <p className="text-xs text-gray-500 line-through">₹{calculateExtensionPrice().toFixed(2)}</p>}
+                          {appliedCoupon && <p className="text-xs font-semibold text-green-700">-{((calculateExtensionPrice() * appliedCoupon.discount) / 100).toFixed(2)} discount</p>}
+                          <span className="font-bold text-lg text-red-600">₹{calculateDiscountedExtensionPrice().toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -652,6 +722,7 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
                   />
                   <p className="text-xs text-gray-500 mt-1">Enter 1-12 months</p>
+                  {renderCouponControl()}
                 </div>
 
                 {/* Updated End Time & Price Display */}
@@ -677,7 +748,11 @@ const ExtendTimeDialog = ({ isOpen, onClose, onConfirm, bookingId, currentEndDat
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-blue-300">
                         <span className="text-sm font-semibold text-gray-900">Total Extension Price:</span>
-                        <span className="font-bold text-lg text-red-600">₹{calculateExtensionPrice().toFixed(2)}</span>
+                        <div className="text-right">
+                          {appliedCoupon && <p className="text-xs text-gray-500 line-through">₹{calculateExtensionPrice().toFixed(2)}</p>}
+                          {appliedCoupon && <p className="text-xs font-semibold text-green-700">-{((calculateExtensionPrice() * appliedCoupon.discount) / 100).toFixed(2)} discount</p>}
+                          <span className="font-bold text-lg text-red-600">₹{calculateDiscountedExtensionPrice().toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -858,7 +933,7 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
       const orderResponse = await createRazorpayOrder({
         bikeId: booking.bike?.id,
         userId: user?.userId,
-        amount: Math.round(extensionData.price).toString(),
+        amount: Math.round(extensionData.discountedPrice).toString(),
         receipt: "None"
       });
 
@@ -868,7 +943,7 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
 
       // Initiate Razorpay payment with order ID
       await initiateRazorpayPayment({
-        amount: extensionData.price,
+        amount: extensionData.discountedPrice,
         description: `Extend booking #${booking.id} by ${extensionData.extendBy === "hour" ? extensionData.hours + " hour(s)" : extensionData.extendBy === "day" ? extensionData.days + " day(s)" : extensionData.extendBy === "week" ? extensionData.weeks + " week(s)" : extensionData.months + " month(s)"}`,
         orderId: orderResponse.orderId,
         prefill: {
@@ -884,9 +959,14 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
               newDateTime: formatDateForAPI(newEndDate),
               extendDuration,
               pricePerDuration,
-              totalPrice: Number(extensionData.price).toFixed(2),
+              totalPrice: Number(extensionData.discountedPrice).toFixed(2),
               extensionType,
+              couponCode: extensionData.couponCode,
             });
+
+            if (extensionData.couponCode) {
+              await submitCouponUsage(extensionData.couponCode, user?.userId);
+            }
 
             // Format new end date for API
             const formattedEndDate = formatDateForAPI(extensionData.newEndDate);
@@ -929,6 +1009,7 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
         onConfirm={handleExtendBooking}
         bookingId={booking.id}
         currentEndDate={booking.endDateTime}
+        userId={user?.userId}
         pricePerHour={booking.bike?.pricePerHour || 0}
         pricePerDay={
           booking.rentalPeriodType?.toUpperCase() === "WEEK"
@@ -1017,7 +1098,10 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
               <p className="text-xs text-amber-800 font-semibold mb-2">Extended Booking</p>
               {booking.extensions.map((extension) => (
                 <div key={extension.id} className="flex justify-between text-sm text-amber-900">
-                  <span>{extension.extendDuration} {extension.extensionType?.toLowerCase()} extension</span>
+                  <div>
+                    <span>{extension.extendDuration} {extension.extensionType?.toLowerCase()} extension</span>
+                    {extension.couponCode && <p className="text-xs text-green-700">{extension.couponCode} applied: {Number(extension.couponDiscount || 0)}% off (-₹{Number(extension.couponDiscountAmount || 0).toFixed(2)})</p>}
+                  </div>
                   <span className="font-semibold">₹{Number(extension.totalPrice || 0).toFixed(2)}</span>
                 </div>
               ))}

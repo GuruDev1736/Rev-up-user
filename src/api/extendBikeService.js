@@ -12,6 +12,7 @@ export const extendBikeService = async ({
   pricePerDuration,
   totalPrice,
   extensionType,
+  couponCode,
 }) => {
   try {
     const token = getToken();
@@ -26,6 +27,7 @@ export const extendBikeService = async ({
       pricePerDuration,
       totalPrice,
       extensionType,
+      couponCode,
     }, {
       customHeaders: {
         Authorization: `Bearer ${token}`,
