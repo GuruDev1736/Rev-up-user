@@ -9,6 +9,7 @@ import { getUserById, updateUser, uploadProfilePicture } from "@/api/user";
 import { getDigilockerAuthUrl, getDigilockerStatus, getDigilockerDocuments, downloadDigilockerDocument } from "@/api/digilocker";
 import { uploadDocument } from "@/api/upload";
 import { checkAndCompressDocument } from "@/lib/documentUtils";
+import { consumeDocumentReturnPath } from "@/lib/documentReturnContext";
 
 export default function Profile() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -294,6 +295,10 @@ export default function Profile() {
         }
         setAadharSuccess("Aadhaar uploaded successfully. It will be used for booking verification.");
         setSelectedAadhaarFile(null);
+        const returnPath = consumeDocumentReturnPath();
+        if (returnPath) {
+          setTimeout(() => router.replace(returnPath), 1000);
+        }
       } else {
         throw new Error(response.message || "Aadhaar upload failed");
       }

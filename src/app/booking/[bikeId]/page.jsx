@@ -11,6 +11,7 @@ import { createRazorpayOrder } from "@/api/razorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDigilockerAuthUrl, getDigilockerStatus, getDigilockerDocuments } from "@/api/digilocker";
 import { getUserById } from "@/api/user";
+import { saveDocumentReturnPath } from "@/lib/documentReturnContext";
 import Container from "@/components/common/Container";
 import InvoiceModal from "@/components/bikes/InvoiceModal";
 import { getBilledDuration } from "@/lib/bookingPricing";
@@ -254,6 +255,7 @@ export default function BookingPage() {
 
   const handleVerifyWithDigilocker = async () => {
     try {
+      saveDocumentReturnPath(`${window.location.pathname}${window.location.search}`);
       setDigilockerError(null);
       setDigilockerAuthLoading(true);
       const response = await getDigilockerAuthUrl(user.userId);
@@ -1154,7 +1156,10 @@ export default function BookingPage() {
                 {userProfileLoading ? 'Checking' : isAadhaarUploaded ? 'UPLOADED' : 'PENDING'}
               </span>
               <button
-                onClick={() => router.push('/profile')}
+                onClick={() => {
+                  saveDocumentReturnPath(`${window.location.pathname}${window.location.search}`);
+                  router.push('/profile');
+                }}
                 className="px-5 py-3 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 transition"
               >
                 Go to Profile

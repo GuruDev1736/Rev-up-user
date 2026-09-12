@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { postDigilockerCallback } from "@/api/digilocker";
 import { useAuth } from "@/contexts/AuthContext";
+import { consumeDocumentReturnPath } from "@/lib/documentReturnContext";
 
 export default function DigilockerCallbackClient() {
   const searchParams = useSearchParams();
@@ -47,7 +48,8 @@ export default function DigilockerCallbackClient() {
         }
         setStatusText("Verification complete. Redirecting shortly...");
         setCompleted(true);
-        setTimeout(() => router.replace("/profile"), 2000);
+        const returnPath = consumeDocumentReturnPath();
+        setTimeout(() => router.replace(returnPath || "/profile"), 2000);
       } catch (error) {
         console.error("DigiLocker callback failed:", error);
         setStatusText("Verification failed.");
