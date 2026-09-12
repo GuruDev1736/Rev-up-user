@@ -347,9 +347,16 @@ export default function BookingPage() {
   // Handle from date change with validation and pricing period restrictions
   const handleFromDateChange = (e) => {
     const selectedDate = e.target.value;
+    const today = new Date().toISOString().split("T")[0];
+    if (selectedDate < today) {
+      alert("'From' date cannot be in the past.");
+      setFromDate("");
+      setFromTime("");
+      return;
+    }
+
     setFromDate(selectedDate);
 
-    const today = new Date().toISOString().split("T")[0];
     if (selectedDate === today && fromTime) {
       const now = new Date();
       const selectedDateTime = new Date(`${selectedDate}T${fromTime}`);
@@ -390,6 +397,18 @@ export default function BookingPage() {
 
   const handleFromTimeChange = (e) => {
     const selectedTime = e.target.value;
+
+    if (fromDate) {
+      const now = new Date();
+      now.setSeconds(0, 0);
+      const selectedDateTime = new Date(`${fromDate}T${selectedTime}`);
+      if (selectedDateTime < now) {
+        alert("'From' date and time must be present or in the future.");
+        setFromTime("");
+        return;
+      }
+    }
+
     setFromTime(selectedTime);
 
     // Auto-calculate end date based on pricing period
@@ -456,6 +475,21 @@ export default function BookingPage() {
     let selectedDate = e.target.value;
     const minDate = getMinToDate();
 
+    const today = new Date().toISOString().split("T")[0];
+    if (selectedDate < today) {
+      alert("'To' date must be in the future.");
+      setToDate("");
+      setToTime("");
+      return;
+    }
+
+    if (fromDate && selectedDate < fromDate) {
+      alert("'To' date cannot be before the 'From' date.");
+      setToDate("");
+      setToTime("");
+      return;
+    }
+
     if (pricingPeriod !== "day" && selectedDate < minDate) {
       selectedDate = minDate;
     }
@@ -468,7 +502,26 @@ export default function BookingPage() {
   };
 
   const handleToTimeChange = (e) => {
-    setToTime(e.target.value);
+    const selectedTime = e.target.value;
+
+    if (toDate) {
+      const now = new Date();
+      now.setSeconds(0, 0);
+      const selectedDateTime = new Date(`${toDate}T${selectedTime}`);
+      const fromDateTime = fromDate && fromTime ? new Date(`${fromDate}T${fromTime}`) : null;
+      if (selectedDateTime <= now) {
+        alert("'To' date and time must be in the future.");
+        setToTime("");
+        return;
+      }
+      if (fromDateTime && selectedDateTime <= fromDateTime) {
+        alert("'To' date and time must be after the 'From' date and time.");
+        setToTime("");
+        return;
+      }
+    }
+
+    setToTime(selectedTime);
   };
 
   const formatForAPI = (date, time) => {
@@ -556,9 +609,9 @@ export default function BookingPage() {
       case "day": {
         const fullDays = Math.floor(totalHours / DAY_HOURS);
 
-        // A daily booking must be at least 3 hours and is charged as one full day.
-        if (totalHours < MAX_HOURLY_THRESHOLD) {
-          subtotal = 0;
+        // Any positive daily rental shorter than 24 hours is charged as one day.
+        if (totalHours > 0 && totalHours < DAY_HOURS) {
+          subtotal = dailyRate;
           break;
         }
 
@@ -671,7 +724,7 @@ export default function BookingPage() {
     const finalCost = Math.max(0, subtotal - discount);
 
     return {
-      days: totalHours >= MAX_HOURLY_THRESHOLD ? Math.max(1, Math.floor(totalHours / DAY_HOURS)) : 0,
+      days: totalHours > 0 ? Math.max(1, Math.floor(totalHours / DAY_HOURS)) : 0,
       totalCost: subtotal,
       discount: discount,
       finalCost: finalCost,
@@ -798,17 +851,17 @@ export default function BookingPage() {
     const totalHours = (to - from) / (1000 * 60 * 60);
 
     if (from < now) {
-      alert("'From' date and time cannot be in the past");
+      alert("'From' date and time must be present or in the future.");
+      return;
+    }
+
+    if (to <= now) {
+      alert("'To' date and time must be in the future.");
       return;
     }
 
     if (from >= to) {
-      alert("'To' date and time must be after 'From' date and time");
-      return;
-    }
-
-    if (pricingPeriod === "day" && totalHours < MAX_HOURLY_THRESHOLD) {
-      alert("Daily bookings require a minimum rental duration of 3 hours.");
+      alert("'To' date and time must be after the 'From' date and time.");
       return;
     }
 

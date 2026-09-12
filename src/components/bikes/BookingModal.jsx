@@ -33,12 +33,20 @@ export default function BookingModal({ bike, isOpen, onClose }) {
   // Handle from date change with validation
   const handleFromDateChange = (e) => {
     const selectedDate = e.target.value;
-    setFromDate(selectedDate);
-    
-    // If date is today, validate from time isn't in the past
     const today = new Date().toISOString().split("T")[0];
+    if (selectedDate < today) {
+      alert("'From' date cannot be in the past.");
+      setFromDate("");
+      setFromTime("");
+      return;
+    }
+
+    setFromDate(selectedDate);
+
+    // If date is today, validate from time isn't in the past
     if (selectedDate === today && fromTime) {
       const now = new Date();
+      now.setSeconds(0, 0);
       const selectedDateTime = new Date(`${selectedDate}T${fromTime}`);
       if (selectedDateTime < now) {
         setFromTime(""); // Clear invalid time
@@ -55,6 +63,18 @@ export default function BookingModal({ bike, isOpen, onClose }) {
   // Handle from time change with validation
   const handleFromTimeChange = (e) => {
     const selectedTime = e.target.value;
+
+    if (fromDate) {
+      const now = new Date();
+      now.setSeconds(0, 0);
+      const selectedDateTime = new Date(`${fromDate}T${selectedTime}`);
+      if (selectedDateTime < now) {
+        alert("'From' date and time must be present or in the future.");
+        setFromTime("");
+        return;
+      }
+    }
+
     setFromTime(selectedTime);
     
     // If same date as to date, validate to time
@@ -68,6 +88,22 @@ export default function BookingModal({ bike, isOpen, onClose }) {
   // Handle to date change
   const handleToDateChange = (e) => {
     const selectedDate = e.target.value;
+
+    const today = new Date().toISOString().split("T")[0];
+    if (selectedDate < today) {
+      alert("'To' date must be in the future.");
+      setToDate("");
+      setToTime("");
+      return;
+    }
+
+    if (fromDate && selectedDate < fromDate) {
+      alert("'To' date cannot be before the 'From' date.");
+      setToDate("");
+      setToTime("");
+      return;
+    }
+
     setToDate(selectedDate);
     
     // Clear to time if dates are same and need revalidation
@@ -78,7 +114,26 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
   // Handle to time change with validation
   const handleToTimeChange = (e) => {
-    setToTime(e.target.value);
+    const selectedTime = e.target.value;
+
+    if (toDate) {
+      const now = new Date();
+      now.setSeconds(0, 0);
+      const selectedDateTime = new Date(`${toDate}T${selectedTime}`);
+      const fromDateTime = fromDate && fromTime ? new Date(`${fromDate}T${fromTime}`) : null;
+      if (selectedDateTime <= now) {
+        alert("'To' date and time must be in the future.");
+        setToTime("");
+        return;
+      }
+      if (fromDateTime && selectedDateTime <= fromDateTime) {
+        alert("'To' date and time must be after the 'From' date and time.");
+        setToTime("");
+        return;
+      }
+    }
+
+    setToTime(selectedTime);
   };
 
   // Format datetime for API (YYYY-MM-DD HH:mm)
@@ -199,12 +254,17 @@ export default function BookingModal({ bike, isOpen, onClose }) {
 
     // Check if from date/time is in the past
     if (from < now) {
-      alert("'From' date and time cannot be in the past");
+      alert("'From' date and time must be present or in the future.");
+      return;
+    }
+
+    if (to <= now) {
+      alert("'To' date and time must be in the future.");
       return;
     }
 
     if (from >= to) {
-      alert("'To' date and time must be after 'From' date and time");
+      alert("'To' date and time must be after the 'From' date and time.");
       return;
     }
 

@@ -10,8 +10,9 @@ export const getBilledDuration = (startDateTime, endDateTime, rentalPeriodType) 
 
   const start = new Date(startDateTime.replace(" ", "T"));
   const end = new Date(endDateTime.replace(" ", "T"));
+  const totalMinutes = Math.floor((end - start) / (1000 * 60));
   const totalHours = Math.floor((end - start) / (1000 * 60 * 60));
-  if (totalHours < 0) return "N/A";
+  if (totalMinutes < 0) return "N/A";
 
   const parts = [];
   const addHours = (hours) => {
@@ -52,7 +53,8 @@ export const getBilledDuration = (startDateTime, endDateTime, rentalPeriodType) 
       return parts.join(" + ") || "0 Hours";
     }
     default: {
-      if (totalHours < 3) return "0 Hours";
+      if (totalMinutes === 0) return "0 Hours";
+      if (totalHours < DAY_HOURS && totalHours >= 0) return pluralize(1, "Day");
       const fullDays = Math.floor(totalHours / DAY_HOURS);
       const remainingHours = totalHours % DAY_HOURS;
       if (remainingHours === 0) return pluralize(fullDays, "Day");
