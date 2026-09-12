@@ -1028,6 +1028,25 @@ const BookingCard = ({ booking, onBookingCancelled, showCancelButton, user }) =>
             </div>
           )}
 
+          {(booking.couponCode || Number(booking.couponDiscountAmount || 0) > 0) && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-xs text-green-800 font-semibold mb-2">Coupon Applied</p>
+              <div className="space-y-1 text-sm text-green-900">
+                <div className="flex justify-between gap-3">
+                  <span>{booking.couponCode || "Coupon"}{booking.couponName ? ` - ${booking.couponName}` : ""}</span>
+                  <span className="font-semibold">{Number(booking.couponDiscount || 0)}% off</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>Discount</span>
+                  <span className="font-semibold">-₹{Number(booking.couponDiscountAmount || 0).toFixed(2)}</span>
+                </div>
+                {booking.couponDescription && (
+                  <p className="text-xs text-green-700 pt-1">{booking.couponDescription}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Documents Section */}
           {(booking.aadharcardUrl || booking.drivingLicenseUrl) && (
             <div className="mb-4 p-3 bg-gray-50 rounded-lg">

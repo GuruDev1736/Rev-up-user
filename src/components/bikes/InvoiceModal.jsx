@@ -26,6 +26,16 @@ export default function InvoiceModal({ booking, isOpen, onClose }) {
     });
   };
 
+  const extensionTotal = (booking.extensions || []).reduce(
+    (sum, extension) => sum + Number(extension.totalPrice || 0),
+    0
+  );
+  const couponDiscount = Number(booking.couponDiscountAmount || 0);
+  const rentalBeforeDiscount = Math.max(
+    0,
+    Number(booking.totalAmount || 0) - extensionTotal + couponDiscount
+  );
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -162,6 +172,32 @@ export default function InvoiceModal({ booking, isOpen, onClose }) {
               <div className="mt-3 pt-3 border-t border-amber-200 flex justify-between font-semibold">
                 <span>Updated total</span>
                 <span>₹{Number(booking.totalAmount || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          {(booking.couponCode || couponDiscount > 0) && (
+            <div className="border border-green-200 bg-green-50 rounded-2xl p-5">
+              <h3 className="text-lg font-bold text-gray-900 mb-3">Coupon Applied</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-600">Coupon</span>
+                  <span className="font-semibold text-gray-900">{booking.couponCode || "N/A"}</span>
+                </div>
+                {booking.couponName && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-600">Offer</span>
+                    <span className="font-semibold text-gray-900 text-right">{booking.couponName}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-600">Discount</span>
+                  <span className="font-semibold text-green-700">{Number(booking.couponDiscount || 0)}% (-₹{couponDiscount.toFixed(2)})</span>
+                </div>
+                <div className="flex justify-between border-t border-green-200 pt-2">
+                  <span className="text-gray-600">Rental before discount</span>
+                  <span className="font-semibold text-gray-900">₹{rentalBeforeDiscount.toFixed(2)}</span>
+                </div>
               </div>
             </div>
           )}
