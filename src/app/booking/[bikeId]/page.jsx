@@ -797,6 +797,11 @@ export default function BookingPage() {
   };
 
   const handleBooking = async () => {
+    if (bike.quantity != null && bike.quantity <= 0) {
+      alert("This bike is currently out of stock and cannot be booked.");
+      return;
+    }
+
     if (!fromDate || !fromTime || !toDate || !toTime) {
       alert("Please select booking dates and times");
       return;
@@ -1096,6 +1101,27 @@ export default function BookingPage() {
               className="mt-4 px-6 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-all"
             >
               View Your Rides
+            </button>
+          </div>
+        )}
+
+        {/* Out of Stock Warning */}
+        {bike.quantity != null && bike.quantity <= 0 && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🚫</span>
+              <div>
+                <h3 className="text-lg font-bold text-red-800">Bike Not Available</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  This bike is currently out of stock (quantity: 0). Please browse other available bikes.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/request-bike')}
+              className="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all"
+            >
+              Browse Available Bikes
             </button>
           </div>
         )}
