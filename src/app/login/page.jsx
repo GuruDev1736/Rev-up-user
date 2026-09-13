@@ -408,7 +408,7 @@ export default function Login() {
               <form onSubmit={handleVerifyOTP} className="flex flex-col gap-5">
                 <div className="bg-red-50 border-l-4 p-4 rounded-r-lg" style={{ borderLeftColor: '#f51717' }}>
                   <p className="text-gray-700 text-sm leading-relaxed">
-                    We've sent a 4-digit verification code to
+                    We've sent a 6-digit verification code to
                   </p>
                   <p className="font-semibold text-gray-900 mt-1">{forgotEmail}</p>
                 </div>
@@ -419,10 +419,10 @@ export default function Login() {
                   <input
                     type="text"
                     id="otp"
-                    placeholder="0000"
+                    placeholder="000000"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    maxLength={4}
+                    maxLength={6}
                     className="w-full border-2 border-gray-200 rounded-xl px-4 py-4 focus:outline-none focus:border-red-500 text-center text-3xl font-bold tracking-[0.5em] transition-colors"
                     required
                   />
