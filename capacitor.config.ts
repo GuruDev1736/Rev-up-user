@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'revup',
   webDir: '.next',
   server: {
-    url: 'http://192.168.0.108:3000',
-    cleartext: true
+    url: 'https://beta.revupbikes.com',
+    cleartext: false
   }
 };
 
