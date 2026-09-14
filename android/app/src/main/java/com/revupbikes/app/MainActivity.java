@@ -1,15 +1,14 @@
 package com.revupbikes.app;
 
-import android.os.Build;
 import android.os.Bundle;
-import android.webkit.WebView;
-
 import com.getcapacitor.BridgeActivity;
+import com.ionicframework.capacitor.Checkout;
 
 public class MainActivity extends BridgeActivity {
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(Checkout.class);
         super.onCreate(savedInstanceState);
     }
 }
