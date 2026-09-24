@@ -2,12 +2,15 @@ package com.revupbikes.app;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.view.ViewGroup;
 import android.webkit.WebBackForwardList;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -17,6 +20,42 @@ import com.getcapacitor.BridgeActivity;
 import com.ionicframework.capacitor.Checkout;
 
 public class MainActivity extends BridgeActivity {
+
+    // File extensions that should open in the DocumentViewerActivity
+    private static final String[] DOCUMENT_EXTENSIONS = {
+            ".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg"
+    };
+
+    /**
+     * Check if a URL points to a document file (PDF, image, etc.)
+     */
+    private boolean isDocumentUrl(String url) {
+        if (url == null) return false;
+        String lowerUrl = url.toLowerCase().split("\\?")[0]; // Remove query params
+        for (String ext : DOCUMENT_EXTENSIONS) {
+            if (lowerUrl.endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Extract a human-readable title from a document URL.
+     */
+    private String getTitleFromUrl(String url) {
+        try {
+            String path = Uri.parse(url).getLastPathSegment();
+            if (path != null && !path.isEmpty()) {
+                // Clean up the filename
+                return path.replaceAll("[_-]", " ")
+                        .replaceAll("\\.[^.]+$", "") // remove extension
+                        .trim();
+            }
+        } catch (Exception ignored) {
+        }
+        return "Document";
+    }
 
     /**
      * Check if a URL is a "real" app page that the user should be able to
@@ -80,6 +119,10 @@ public class MainActivity extends BridgeActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT
         ));
 
+        // Enable support for window.open() — required to intercept _blank targets
+        webView.getSettings().setSupportMultipleWindows(true);
+        webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+
         Handler handler = new Handler(Looper.getMainLooper());
 
         // Set up pull-to-refresh: reload the WebView and poll for completion
@@ -117,7 +160,6 @@ public class MainActivity extends BridgeActivity {
                     for (int i = currentIndex - 1; i >= 0; i--) {
                         String prevUrl = history.getItemAtIndex(i).getUrl();
                         if (isNavigableAppUrl(prevUrl)) {
-                            // Found a valid page — go back the required number of steps
                             int steps = currentIndex - i;
                             webView.goBackOrForward(-steps);
                             return;
@@ -136,11 +178,12 @@ public class MainActivity extends BridgeActivity {
             }
         });
 
-        // Keep all navigation inside the WebView (DigiLocker OAuth, callbacks, etc.)
+        // Keep all navigation inside the WebView + intercept document URLs
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                String url = uri.toString();
                 String scheme = uri.getScheme();
 
                 // Let non-http schemes (tel:, mailto:, intent:) open externally
@@ -153,18 +196,77 @@ public class MainActivity extends BridgeActivity {
                     return true;
                 }
 
-                // All http/https URLs load inside the WebView
-                view.loadUrl(uri.toString());
+                // Intercept document URLs — open in DocumentViewerActivity
+                if (isDocumentUrl(url)) {
+                    DocumentViewerActivity.open(
+                            MainActivity.this, url, getTitleFromUrl(url));
+                    return true;
+                }
+
+                // All other http/https URLs load inside the WebView
+                view.loadUrl(url);
                 return true;
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // Dismiss swipe-refresh spinner if active
                 if (swipeRefreshLayout.isRefreshing()) {
                     swipeRefreshLayout.setRefreshing(false);
                 }
+            }
+        });
+
+        // Intercept window.open() calls (used by the website for _blank document links)
+        // This catches: window.open(docUrl, "_blank") and <a target="_blank">
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog,
+                                          boolean isUserGesture, Message resultMsg) {
+                // Get the URL that was being opened
+                WebView.HitTestResult hitTestResult = view.getHitTestResult();
+                String url = hitTestResult.getExtra();
+
+                if (url != null && isDocumentUrl(url)) {
+                    // Document URL — open in DocumentViewerActivity
+                    DocumentViewerActivity.open(
+                            MainActivity.this, url, getTitleFromUrl(url));
+                    return false; // Don't create a new window
+                }
+
+                // For non-document URLs opened with window.open/_blank,
+                // create a temporary WebView to extract the URL, then
+                // load it in our main WebView (or open in document viewer)
+                WebView tempWebView = new WebView(MainActivity.this);
+                tempWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest request) {
+                        String newUrl = request.getUrl().toString();
+
+                        if (isDocumentUrl(newUrl)) {
+                            DocumentViewerActivity.open(
+                                    MainActivity.this, newUrl, getTitleFromUrl(newUrl));
+                        } else {
+                            // Load in the main WebView instead of opening a new window
+                            webView.loadUrl(newUrl);
+                        }
+
+                        // Clean up the temp WebView
+                        tempWebView.destroy();
+                        return true;
+                    }
+                });
+
+                WebView.WebViewTransport transport =
+                        (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(tempWebView);
+                resultMsg.sendToTarget();
+                return true;
+            }
+
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                super.onProgressChanged(view, newProgress);
             }
         });
     }
