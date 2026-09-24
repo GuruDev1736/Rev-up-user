@@ -188,7 +188,16 @@ export default function ManageRequestsPage() {
           {['APPROVE', 'APPROVED'].includes(request.status?.toUpperCase()) && request.bike?.id && (
             request.bike.quantity > 0 ? (
               <button
-                onClick={() => router.push(`/booking/${request.bike.id}?fromRequest=true`)}
+                onClick={() => {
+                  if (request.bike) {
+                    try {
+                      localStorage.setItem("selectedBike", JSON.stringify(request.bike));
+                    } catch (e) {
+                      console.error("Error saving selectedBike to localStorage:", e);
+                    }
+                  }
+                  router.push(`/booking/${request.bike.id}?fromRequest=true`);
+                }}
                 className="mt-3 w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-md hover:shadow-lg"
               >
                 Book Now
