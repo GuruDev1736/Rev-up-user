@@ -495,12 +495,6 @@ export default function BookingModal({ bike, isOpen, onClose }) {
                     min={getMinFromTime()}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all bg-white"
                   />
-                  {isFromDateToday && (
-                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                      <span>⚠️</span>
-                      <span>Cannot select past time for today</span>
-                    </p>
-                  )}
                   {fromDate && fromTime && (
                     <p className="text-xs text-gray-500 mt-1">
                       {new Date(`${fromDate}T${fromTime}`).toLocaleString('en-US', {

@@ -37,6 +37,8 @@ export default function ManageRequestsPage() {
           (bookings || [])
             .filter((booking) => ["PENDING", "CONFIRMED", "ACTIVE"].includes(booking.bookingStatus?.toUpperCase()))
             .map((booking) => booking.bike?.id)
+            .filter((bikeId) => bikeId != null)
+            .map(String)
         );
         setBookedBikeIds(bookedBikeIds);
         setRequests(data || []);
@@ -191,7 +193,7 @@ export default function ManageRequestsPage() {
             </div>
           )}
           {['APPROVE', 'APPROVED'].includes(request.status?.toUpperCase()) && request.bike?.id && (
-            bookedBikeIds.has(request.bike.id) ? (
+            bookedBikeIds.has(String(request.bike.id)) ? (
               <button type="button" disabled className="mt-3 w-full py-2.5 bg-gray-200 text-gray-500 rounded-lg font-semibold cursor-not-allowed">
                 Already Booked
               </button>
