@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Container from "@/components/common/Container";
 import { getUserBikeRequests } from "@/api/requestBike";
-import { getUserBookings } from "@/api/booking";
+import { getUserBookings } from "@/api/bookings";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function ManageRequestsPage() {
@@ -15,6 +15,7 @@ export default function ManageRequestsPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [bookedBikeIds, setBookedBikeIds] = useState(new Set());
 
   useEffect(() => {
     if (!isAuthenticated) {
