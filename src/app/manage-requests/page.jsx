@@ -4,14 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Container from "@/components/common/Container";
 import { getUserBikeRequests } from "@/api/requestBike";
-import { getUserBookings } from "@/api/bookings";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function ManageRequestsPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [requests, setRequests] = useState([]);
-  const [bookedBikeIds, setBookedBikeIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
@@ -173,6 +171,12 @@ export default function ManageRequestsPage() {
               <p className="text-xs text-gray-500">Price</p>
               <p className="text-xs font-semibold text-gray-900">₹{request.bike.pricePerDay}/day</p>
             </div>
+            <div>
+              <p className="text-xs text-gray-500">Stock</p>
+              <p className={`text-xs font-semibold ${request.bike.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {request.bike.quantity > 0 ? `${request.bike.quantity} Available` : 'Out of Stock'}
+              </p>
+            </div>
           </div>
         )}
 
@@ -199,10 +203,23 @@ export default function ManageRequestsPage() {
               </button>
             ) : (
               <button
-                onClick={() => router.push(`/booking/${request.bike.id}?fromRequest=true`)}
+                onClick={() => {
+                  if (request.bike) {
+                    try {
+                      localStorage.setItem("selectedBike", JSON.stringify(request.bike));
+                    } catch (e) {
+                      console.error("Error saving selectedBike to localStorage:", e);
+                    }
+                  }
+                  router.push(`/booking/${request.bike.id}?fromRequest=true`);
+                }}
                 className="mt-3 w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 transition-all shadow-md hover:shadow-lg"
               >
                 Book Now
+              </button>
+            ) : (
+              <button type="button" disabled className="mt-3 w-full py-2.5 bg-red-100 text-red-500 rounded-lg font-semibold cursor-not-allowed">
+                Bike Not Available
               </button>
             )
           )}

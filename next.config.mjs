@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["192.168.0.108", "localhost", "127.0.0.1"],
   images: {
     // ⚠️ WARNING: Allowing all domains - not recommended for production
     // This disables Next.js image optimization security features

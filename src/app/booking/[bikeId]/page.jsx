@@ -287,46 +287,56 @@ export default function BookingPage() {
 
   useEffect(() => {
     const fetchBikeData = async () => {
-      // First, try to get bike from localStorage
+      // First, check if bike exists in localStorage and matches current bikeId
       const storedBike = localStorage.getItem("selectedBike");
       const storedPricingPeriod = localStorage.getItem("selectedPricingPeriod");
       
+      let hasValidCachedBike = false;
       if (storedBike) {
         try {
           const bikeData = JSON.parse(storedBike);
-          setBike(bikeData);
-          
-          if (storedPricingPeriod) {
-            setPricingPeriod(storedPricingPeriod);
-          }
-          
-          // Try to fetch fresh data in the background to update quantity
-          try {
-            const response = await getBikeById(bikeId);
+          if (bikeData && String(bikeData.id) === String(bikeId)) {
+            setBike(bikeData);
+            hasValidCachedBike = true;
             
-            // Handle different API response formats
-            let freshBikeData = null;
-            if (response && response.STS === "200" && response.CONTENT) {
-              freshBikeData = response.CONTENT;
-            } else if (response && typeof response === 'object' && response.id) {
-              freshBikeData = response;
+            if (storedPricingPeriod) {
+              setPricingPeriod(storedPricingPeriod);
             }
-            
-            // Update with fresh data if available
-            if (freshBikeData) {
-              setBike(freshBikeData);
-            }
-          } catch (apiError) {
-            // Silently fail - we already have data from localStorage
-            console.log("Could not fetch fresh bike data, using cached data");
           }
         } catch (parseError) {
           console.error("Error parsing stored bike data:", parseError);
+        }
+      }
+
+      // Fetch fresh bike data from API (either in background if cached, or to load if not cached)
+      try {
+        const response = await getBikeById(bikeId);
+        
+        // Handle different API response formats
+        let freshBikeData = null;
+        if (response && response.STS === "200" && response.CONTENT) {
+          freshBikeData = response.CONTENT;
+        } else if (response && typeof response === 'object' && response.id) {
+          freshBikeData = response;
+        }
+        
+        if (freshBikeData) {
+          setBike(freshBikeData);
+          try {
+            localStorage.setItem("selectedBike", JSON.stringify(freshBikeData));
+          } catch (e) {
+            console.error("Error saving fresh bike to localStorage:", e);
+          }
+        } else if (!hasValidCachedBike) {
+          // If no fresh data and no cached data, redirect home
           router.push("/");
         }
-      } else {
-        // No localStorage data, redirect to home
-        router.push("/");
+      } catch (apiError) {
+        console.error("Could not fetch fresh bike data:", apiError);
+        if (!hasValidCachedBike) {
+          // Only redirect if we have no cached data at all
+          router.push("/");
+        }
       }
     };
 
@@ -797,6 +807,11 @@ export default function BookingPage() {
   };
 
   const handleBooking = async () => {
+    if (bike.quantity != null && bike.quantity <= 0) {
+      alert("This bike is currently out of stock and cannot be booked.");
+      return;
+    }
+
     if (!fromDate || !fromTime || !toDate || !toTime) {
       alert("Please select booking dates and times");
       return;
@@ -1096,6 +1111,27 @@ export default function BookingPage() {
               className="mt-4 px-6 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-all"
             >
               View Your Rides
+            </button>
+          </div>
+        )}
+
+        {/* Out of Stock Warning */}
+        {bike.quantity != null && bike.quantity <= 0 && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🚫</span>
+              <div>
+                <h3 className="text-lg font-bold text-red-800">Bike Not Available</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  This bike is currently out of stock (quantity: 0). Please browse other available bikes.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/request-bike')}
+              className="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all"
+            >
+              Browse Available Bikes
             </button>
           </div>
         )}

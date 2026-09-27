@@ -508,7 +508,7 @@ export default function Profile() {
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-8 mb-6 border border-gray-200">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Digilocker Verification</h2>
@@ -522,7 +522,7 @@ export default function Profile() {
                   <p className="text-sm text-gray-600 mt-2">Your account is not verified via DigiLocker. Verification is recommended to unlock all features.</p>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${digilockerStatus?.verified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   {digilockerStatus?.status || (digilockerLoading ? 'Loading' : 'Not Verified')}
                 </span>
@@ -531,7 +531,7 @@ export default function Profile() {
                 (
                   <button
                     onClick={handleVerifyWithDigilocker}
-                    className="px-5 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+                    className="px-5 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition text-sm w-full sm:w-auto"
                   >
                     Verify via DigiLocker
                   </button>
@@ -541,7 +541,7 @@ export default function Profile() {
           </div>
 
           {/* Profile Information */}
-          <div className="bg-white rounded-2xl shadow-sm p-8">
+          <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-8">
             <div className="flex flex-col md:flex-row gap-8">
               {/* Profile Picture */}
               <div className="flex flex-col items-center">
@@ -627,7 +627,7 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-8 mb-6 border border-gray-200">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Aadhaar Upload</h2>
@@ -635,7 +635,7 @@ export default function Profile() {
                   Upload your Aadhaar document here. This is required to book bikes once DigiLocker verification is complete.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-semibold ${displayData?.aadharUploaded ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                   {aadhaarStatus}
                 </span>
@@ -682,7 +682,7 @@ export default function Profile() {
           {
           // digilockerStatus?.verified && 
           (
-            <div className="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+            <div className="bg-white rounded-2xl shadow-sm p-5 sm:p-8 mb-6 border border-gray-200">
               <div className="mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
@@ -717,20 +717,20 @@ export default function Profile() {
                   {digilockerDocuments.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-red-300 hover:bg-red-50 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border border-gray-200 rounded-xl hover:border-red-300 hover:bg-red-50 transition-all"
                     >
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0">
                         <p className="font-semibold text-gray-900 truncate">{doc.name || 'Unknown Document'}</p>
-                        <div className="flex gap-4 mt-1 text-xs text-gray-600">
+                        <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-600">
                           {doc.type && <span className="px-2 py-1 bg-gray-100 rounded">Type: {doc.type}</span>}
-                          {doc.issuerName && <span className="px-2 py-1 bg-gray-100 rounded">Issuer: {doc.issuerName}</span>}
-                            {doc.documentUrl && <span className="px-2 py-1 bg-gray-100 rounded truncate max-w-[220px]">URL ready</span>}
+                          {doc.issuerName && <span className="px-2 py-1 bg-gray-100 rounded truncate max-w-[200px]">Issuer: {doc.issuerName}</span>}
+                          {doc.documentUrl && <span className="px-2 py-1 bg-gray-100 rounded">URL ready</span>}
                         </div>
                       </div>
                       <button
                           onClick={() => handleDownloadDocument(doc)}
                         disabled={downloadingDocumentId === doc.id}
-                        className="ml-4 flex-shrink-0 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="w-full sm:w-auto flex-shrink-0 px-4 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
                       >
                         {downloadingDocumentId === doc.id ? (
                           <>
