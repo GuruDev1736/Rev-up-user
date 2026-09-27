@@ -217,10 +217,6 @@ export default function ManageRequestsPage() {
               >
                 Book Now
               </button>
-            ) : (
-              <button type="button" disabled className="mt-3 w-full py-2.5 bg-red-100 text-red-500 rounded-lg font-semibold cursor-not-allowed">
-                Bike Not Available
-              </button>
             )
           )}
         </div>
