@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Container from "@/components/common/Container";
 import { getUserBikeRequests } from "@/api/requestBike";
+import { getUserBookings } from "@/api/booking";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function ManageRequestsPage() {
